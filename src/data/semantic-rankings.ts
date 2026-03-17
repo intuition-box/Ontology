@@ -104,6 +104,20 @@ const PREDICATE_SEMANTICS: Record<string, { group: SemanticGroup; priority: numb
   taggedWith:      { group: 'Content & Media', priority: 1 },
   partOf:          { group: 'Content & Media', priority: 2 },
 
+  hasSkill:        { group: 'Interests & Expertise', priority: 4 },
+  learningSkill:   { group: 'Interests & Expertise', priority: 5 },
+  audited:         { group: 'Interests & Expertise', priority: 6 },
+  hasAgentSkill:   { group: 'Interests & Expertise', priority: 7 },
+  capableOf:       { group: 'Interests & Expertise', priority: 8 },
+
+  requiresSkill:   { group: 'Taxonomy & Classification', priority: 5 },
+  complementsSkill:{ group: 'Taxonomy & Classification', priority: 6 },
+  supersedes:      { group: 'Taxonomy & Classification', priority: 7 },
+  inspiredBy:      { group: 'Taxonomy & Classification', priority: 8 },
+  leverages:       { group: 'Taxonomy & Classification', priority: 9 },
+  enabledBy:       { group: 'Software & Tools', priority: 6 },
+  performedBy:     { group: 'Membership & Work', priority: 8 },
+
   isA:             { group: 'Taxonomy & Classification', priority: 1 },
   relatedTo:       { group: 'Taxonomy & Classification', priority: 2 },
   subConceptOf:    { group: 'Taxonomy & Classification', priority: 3 },

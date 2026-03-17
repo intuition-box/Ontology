@@ -9,7 +9,8 @@ export type AtomCategory =
   | 'generic'
   | 'commerce'
   | 'social'
-  | 'web';
+  | 'web'
+  | 'skill';
 
 export interface SchemaField {
   name: string;
@@ -47,6 +48,7 @@ export const ATOM_CATEGORIES: Record<AtomCategory, { label: string; color: strin
   commerce: { label: 'Commerce', color: '#14b8a6' },
   social: { label: 'Social', color: '#e879f9' },
   web: { label: 'Web', color: '#38bdf8' },
+  skill: { label: 'Skill', color: '#f472b6' },
 };
 
 /**
@@ -516,6 +518,25 @@ export const ATOM_TYPES: AtomType[] = [
     ],
   },
   {
+    id: 'Agent',
+    label: 'Agent',
+    schemaOrgType: 'SoftwareApplication',
+    pluginId: 'agent',
+    category: 'software',
+    description: 'An AI agent — an autonomous software entity that performs tasks, uses tools, and makes decisions.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Agent name' },
+      { name: 'description', type: 'string', required: true, description: 'What the agent does' },
+    ],
+    enrichmentFields: [
+      { name: 'model', type: 'string', required: false, description: 'Underlying AI model (e.g. Claude, GPT-4)' },
+      { name: 'provider', type: 'string', required: false, description: 'Organization that built the agent' },
+      { name: 'tools', type: 'string[]', required: false, description: 'Tools or APIs the agent can use' },
+      { name: 'capabilities', type: 'string[]', required: false, description: 'High-level capabilities' },
+      { name: 'url', type: 'string', required: false, description: 'Canonical agent URL' },
+    ],
+  },
+  {
     id: 'Dataset',
     label: 'Dataset',
     schemaOrgType: 'Dataset',
@@ -674,6 +695,78 @@ export const ATOM_TYPES: AtomType[] = [
     enrichmentFields: [
       { name: 'totalSupply', type: 'string', required: false, description: 'Total supply' },
       { name: 'logo', type: 'string', required: false, description: 'Token logo URL' },
+    ],
+  },
+
+  // ─── Skill ────────────────────────────────────────────────
+  {
+    id: 'HumanSkill',
+    label: 'Human Skill',
+    schemaOrgType: 'DefinedTerm',
+    pluginId: 'skill',
+    category: 'skill',
+    description: 'A capability or competency performed by a human — programming, design, leadership, etc.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Skill name' },
+      { name: 'description', type: 'string', required: true, description: 'What this skill enables' },
+    ],
+    enrichmentFields: [
+      { name: 'domain', type: 'string', required: false, description: 'Domain or field (e.g. engineering, design, finance)' },
+      { name: 'proficiencyLevel', type: 'string', required: false, description: 'Typical proficiency scale (beginner, intermediate, expert)' },
+      { name: 'related', type: 'string[]', required: false, description: 'Related skills' },
+      { name: 'certifications', type: 'string[]', required: false, description: 'Relevant certifications' },
+    ],
+  },
+  {
+    id: 'SoftSkill',
+    label: 'Soft Skill',
+    schemaOrgType: 'DefinedTerm',
+    pluginId: 'skill',
+    category: 'skill',
+    description: 'An interpersonal or non-technical skill — communication, leadership, teamwork, etc.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Skill name' },
+      { name: 'description', type: 'string', required: true, description: 'What this skill enables' },
+    ],
+    enrichmentFields: [
+      { name: 'domain', type: 'string', required: false, description: 'Domain or context' },
+      { name: 'related', type: 'string[]', required: false, description: 'Related skills' },
+    ],
+  },
+  {
+    id: 'HardSkill',
+    label: 'Hard Skill',
+    schemaOrgType: 'DefinedTerm',
+    pluginId: 'skill',
+    category: 'skill',
+    description: 'A technical or measurable skill — Solidity, data analysis, system design, etc.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Skill name' },
+      { name: 'description', type: 'string', required: true, description: 'What this skill enables' },
+    ],
+    enrichmentFields: [
+      { name: 'domain', type: 'string', required: false, description: 'Domain or field' },
+      { name: 'proficiencyLevel', type: 'string', required: false, description: 'Typical proficiency scale (beginner, intermediate, expert)' },
+      { name: 'related', type: 'string[]', required: false, description: 'Related skills' },
+      { name: 'certifications', type: 'string[]', required: false, description: 'Relevant certifications' },
+    ],
+  },
+  {
+    id: 'AgentSkill',
+    label: 'Agent Skill',
+    schemaOrgType: 'SoftwareApplication',
+    pluginId: 'agent-skill',
+    category: 'software',
+    description: 'A skill performed by an AI agent — code generation, data analysis, tool use, etc.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Skill name' },
+      { name: 'description', type: 'string', required: true, description: 'What this skill enables' },
+    ],
+    enrichmentFields: [
+      { name: 'domain', type: 'string', required: false, description: 'Domain or field' },
+      { name: 'model', type: 'string', required: false, description: 'AI model or system that provides the skill' },
+      { name: 'tooling', type: 'string[]', required: false, description: 'Tools or APIs the agent uses' },
+      { name: 'related', type: 'string[]', required: false, description: 'Related skills' },
     ],
   },
 

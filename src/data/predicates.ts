@@ -30,7 +30,7 @@ export const PREDICATES: PredicateRule[] = [
   { id: 'follows', label: 'follows', description: 'Subject follows or subscribes to object', subjectTypes: ['Person'], objectTypes: ['Person', ...ORG_TYPES, 'MusicGroup'] },
   { id: 'knows', label: 'knows', description: 'Subject has a personal connection with object', subjectTypes: ['Person'], objectTypes: ['Person'] },
   { id: 'endorses', label: 'endorses', description: 'Subject endorses or vouches for object', subjectTypes: ['Person'], objectTypes: ['Person', ...ORG_TYPES, ...SOFTWARE_TYPES, 'Product', 'Service'] },
-  { id: 'recommends', label: 'recommends', description: 'Subject recommends object to others', subjectTypes: ['Person', 'Agent'], objectTypes: ['Person', ...ORG_TYPES, ...SOFTWARE_TYPES, ...CREATIVE_WORK_TYPES, ...SKILL_TYPES, 'Product', 'Service', 'Event', 'WebSite', 'Thing'] },
+  { id: 'recommends', label: 'recommends', description: 'Subject recommends object to others', subjectTypes: ['Person', 'Agent'], objectTypes: ['Person', 'Agent', ...ORG_TYPES, ...SOFTWARE_TYPES, ...CREATIVE_WORK_TYPES, ...SKILL_TYPES, 'Product', 'Service', 'Event', 'WebSite', 'Thing'] },
 
   // ─── Person → Organization ────────────────────────────────
   { id: 'memberOf', label: 'memberOf', description: 'Subject is a member of organization', subjectTypes: ['Person'], objectTypes: [...ORG_TYPES, 'MusicGroup'] },
@@ -132,6 +132,11 @@ export const PREDICATES: PredicateRule[] = [
   // ─── Agent → Skill ──────────────────────────────────────
   { id: 'hasAgentSkill', label: 'hasSkill', description: 'Agent possesses or provides this skill', subjectTypes: ['Agent'], objectTypes: [...SKILL_TYPES] },
   { id: 'capableOf', label: 'capableOf', description: 'Agent is capable of performing this skill', subjectTypes: ['Agent'], objectTypes: [...SKILL_TYPES] },
+
+  // ─── Agent → Agent ──────────────────────────────────────
+  { id: 'evaluatedBy', label: 'evaluatedBy', description: "Agent or person evaluated another agent's output", subjectTypes: ['Agent'], objectTypes: ['Agent', 'Person'] },
+  { id: 'delegatedTo', label: 'delegatedTo', description: 'Agent or person delegated a task to another agent', subjectTypes: ['Agent', 'Person'], objectTypes: ['Agent'] },
+  { id: 'collaboratedWith', label: 'collaboratedWith', description: 'Two agents worked together on a task', subjectTypes: ['Agent'], objectTypes: ['Agent'] },
 
   // ─── Generic ──────────────────────────────────────────────
   { id: 'isA', label: 'isA', description: 'Entity is an instance of type/concept', subjectTypes: ['Thing', 'Person', ...ORG_TYPES, ...SOFTWARE_TYPES, 'Product', 'Service'], objectTypes: ['DefinedTerm', 'Thing'] },

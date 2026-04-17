@@ -211,7 +211,7 @@ export function TutorialOverlay({ isOpen, onClose }: TutorialOverlayProps) {
 
 /** Hook that manages tutorial visibility (auto-show on first visit) */
 export function useTutorial() {
-  const [seen, setSeen] = useLocalStorage('observatory-tutorial-seen', false);
+  const [seen, setSeen] = useLocalStorage('ontology-tutorial-seen', false);
   const [isOpen, setIsOpen] = useState(false);
 
   // Auto-show on first visit

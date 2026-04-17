@@ -44,7 +44,7 @@
 /* ─── Dark theme (default) ─────────────────────────────── */
 :root,
 [data-theme="dark"] {
-  /* Observatory palette */
+  /* Ontology palette */
   --color-bg: #0a0a0f;
   --color-surface: #12121a;
   --color-surface-raised: #1a1a26;
@@ -56,7 +56,7 @@
   --color-accent: #A9A9F1;
   --color-accent-hover: #BFBFF5;
 
-  /* Component library tokens (aligned to observatory palette) */
+  /* Component library tokens (aligned to ontology palette) */
   --background: #0a0a0f;
   --foreground: #e4e4ed;
   --card: #12121a;
@@ -94,7 +94,7 @@
 
 /* ─── Light theme ──────────────────────────────────────── */
 [data-theme="light"] {
-  /* Observatory palette */
+  /* Ontology palette */
   --color-bg: #f8f8fc;
   --color-surface: #ffffff;
   --color-surface-raised: #f0f0f6;
@@ -106,7 +106,7 @@
   --color-accent: #A9A9F1;
   --color-accent-hover: #8E8EE0;
 
-  /* Component library tokens (aligned to observatory palette) */
+  /* Component library tokens (aligned to ontology palette) */
   --background: #f8f8fc;
   --foreground: #1a1a2e;
   --card: #ffffff;

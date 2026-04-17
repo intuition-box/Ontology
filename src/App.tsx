@@ -22,8 +22,8 @@ export default function App() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [selectedPredicateId, setSelectedPredicateId] = useState<string | null>(null);
   const claimBuilderRef = useRef<ClaimBuilderHandle>(null);
-  const [theme, setTheme] = useLocalStorage<Theme>('observatory-theme', getSystemTheme());
-  const [history, setHistory] = useLocalStorage<ClaimEntry[]>('observatory-history', []);
+  const [theme, setTheme] = useLocalStorage<Theme>('ontology-theme', getSystemTheme());
+  const [history, setHistory] = useLocalStorage<ClaimEntry[]>('ontology-history', []);
   const [batch, setBatch] = useState<ClaimEntry[]>([]);
   const tutorial = useTutorial();
   const navigate = useNavigate();

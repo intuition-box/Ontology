@@ -1,25 +1,26 @@
 import { useState, useCallback } from 'react';
-import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
+import { getAtomColor } from '../lib/atom-colors';
 import { downloadClaimsAsJson, generateShareableUrl, copyToClipboard, claimsToJsonLd } from '../lib/claim-export';
+import { useClaimWorkspace } from '../lib/use-claim-workspace';
+import { COPY_FEEDBACK_MS } from '../lib/timings';
 import type { ClaimEntry } from '../types';
 
 interface BatchBuilderProps {
-  batch: ClaimEntry[];
-  onBatchChange: (batch: ClaimEntry[]) => void;
   searchQuery?: string;
 }
 
-export function BatchBuilder({ batch, onBatchChange, searchQuery }: BatchBuilderProps) {
+export function BatchBuilder({ searchQuery }: BatchBuilderProps) {
+  const { batch, setBatch } = useClaimWorkspace();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
 
   const handleRemove = useCallback((id: string) => {
-    onBatchChange(batch.filter((c) => c.id !== id));
-  }, [batch, onBatchChange]);
+    setBatch((prev) => prev.filter((c) => c.id !== id));
+  }, [setBatch]);
 
   const handleClear = useCallback(() => {
-    onBatchChange([]);
-  }, [onBatchChange]);
+    setBatch([]);
+  }, [setBatch]);
 
   const handleDownload = useCallback(() => {
     downloadClaimsAsJson(batch);
@@ -30,7 +31,7 @@ export function BatchBuilder({ batch, onBatchChange, searchQuery }: BatchBuilder
     const ok = await copyToClipboard(JSON.stringify(jsonLd, null, 2));
     if (ok) {
       setCopiedFeedback('json');
-      setTimeout(() => setCopiedFeedback(null), 2000);
+      setTimeout(() => setCopiedFeedback(null), COPY_FEEDBACK_MS);
     }
   }, [batch]);
 
@@ -39,7 +40,7 @@ export function BatchBuilder({ batch, onBatchChange, searchQuery }: BatchBuilder
     const ok = await copyToClipboard(url);
     if (ok) {
       setCopiedFeedback('url');
-      setTimeout(() => setCopiedFeedback(null), 2000);
+      setTimeout(() => setCopiedFeedback(null), COPY_FEEDBACK_MS);
     }
   }, [batch]);
 
@@ -142,15 +143,8 @@ function BatchRow({
   onRemove: () => void;
   dimmed?: boolean;
 }) {
-  const subjectAtom = ATOM_TYPES.find((t) => t.id === entry.subjectType);
-  const objectAtom = ATOM_TYPES.find((t) => t.id === entry.objectType);
-
-  const subjectColor = subjectAtom
-    ? ATOM_CATEGORIES[subjectAtom.category as AtomCategory].color
-    : 'var(--color-text)';
-  const objectColor = objectAtom
-    ? ATOM_CATEGORIES[objectAtom.category as AtomCategory].color
-    : 'var(--color-text)';
+  const subjectColor = getAtomColor(entry.subjectType);
+  const objectColor = getAtomColor(entry.objectType);
 
   return (
     <div className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--color-surface-hover)] transition-all group ${dimmed ? 'opacity-30' : ''}`}>

@@ -1,4 +1,4 @@
-import { useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useState, useCallback, useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
 import { SubjectInput } from './subject-input';
 import { PredicateSelect } from './predicate-select';
 import { ObjectInput } from './object-input';
@@ -30,6 +30,18 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
     const [object, setObject] = useState('');
     const [objectType, setObjectType] = useState<string | null>(null);
 
+    // Mirror the latest values behind refs so the imperative handle's getters
+    // always read current state without rebuilding the handle object on every
+    // keystroke (which would invalidate callers' cached `ref.current`). Mirror
+    // inside an effect — the react-hooks lint rule forbids ref writes during
+    // render, and post-commit sync is semantically identical here.
+    const subjectRef = useRef(subject);
+    const subjectTypeRef = useRef(subjectType);
+    useEffect(() => {
+      subjectRef.current = subject;
+      subjectTypeRef.current = subjectType;
+    });
+
     const hasSubject = subject.trim().length > 0 && subjectType !== null;
     const hasPredicate = predicateId !== null;
 
@@ -46,27 +58,33 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
       };
     }, [subject, subjectType, predicateId, object, objectType]);
 
-    useImperativeHandle(ref, () => ({
-      fillFromMatrix(subTypeId: string, predId: string, objTypeId: string) {
-        setSubjectType(subTypeId);
-        onSubjectTypeChange?.(subTypeId);
-        setPredicateId(predId);
-        onPredicateChange?.(predId);
-        setObjectType(objTypeId);
-        setObject('');
-      },
-      restoreClaim(entry: ClaimEntry) {
-        setSubject(entry.subject);
-        setSubjectType(entry.subjectType);
-        onSubjectTypeChange?.(entry.subjectType);
-        setPredicateId(entry.predicateId);
-        onPredicateChange?.(entry.predicateId);
-        setObject(entry.object);
-        setObjectType(entry.objectType);
-      },
-      getSubjectValue: () => subject,
-      getSubjectType: () => subjectType,
-    }), [subject, subjectType, onSubjectTypeChange, onPredicateChange]);
+    // Stable imperative handle — getters read via refs so `[]` deps are honest
+    // and callers' cached ref.current values never go stale between renders.
+    useImperativeHandle(
+      ref,
+      () => ({
+        fillFromMatrix(subTypeId: string, predId: string, objTypeId: string) {
+          setSubjectType(subTypeId);
+          onSubjectTypeChange?.(subTypeId);
+          setPredicateId(predId);
+          onPredicateChange?.(predId);
+          setObjectType(objTypeId);
+          setObject('');
+        },
+        restoreClaim(entry: ClaimEntry) {
+          setSubject(entry.subject);
+          setSubjectType(entry.subjectType);
+          onSubjectTypeChange?.(entry.subjectType);
+          setPredicateId(entry.predicateId);
+          onPredicateChange?.(entry.predicateId);
+          setObject(entry.object);
+          setObjectType(entry.objectType);
+        },
+        getSubjectValue: () => subjectRef.current,
+        getSubjectType: () => subjectTypeRef.current,
+      }),
+      [onSubjectTypeChange, onPredicateChange]
+    );
 
     const handleSubjectChange = useCallback((value: string) => {
       setSubject(value);

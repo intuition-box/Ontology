@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { ATOM_HIERARCHY, type HierarchyNode } from '../data/hierarchy';
-import { ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
+import { getAtomColor } from '../lib/atom-colors';
+import { useBodyScrollLock } from '../lib/use-body-scroll-lock';
+import { D3_RESET_DURATION_MS } from '../lib/timings';
 
 interface AtomTreeProps {
   selectedTypeId: string | null;
-  onSelectType?: (typeId: string) => void;
+  onSelectType?: (typeId: string | null) => void;
   globalSearchQuery?: string;
 }
 
@@ -30,10 +32,10 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
     if (svgRef.current && zoomRef.current) {
       d3.select(svgRef.current)
         .transition()
-        .duration(400)
+        .duration(D3_RESET_DURATION_MS)
         .call(zoomRef.current.transform, d3.zoomIdentity);
     }
-    onSelectTypeRef.current?.(null as unknown as string);
+    onSelectTypeRef.current?.(null);
     setHasInteracted(false);
   }, []);
 
@@ -47,15 +49,7 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
     return () => window.removeEventListener('keydown', handleKey);
   }, [isFullscreen]);
 
-  // Lock body scroll when fullscreen
-  useEffect(() => {
-    if (isFullscreen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [isFullscreen]);
+  useBodyScrollLock(isFullscreen);
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
@@ -152,10 +146,7 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
     node
       .append('circle')
       .attr('r', (d) => (d.data.id === selectedTypeId ? selectedNodeRadius : nodeRadius))
-      .attr('fill', (d) => {
-        const cat = d.data.category as AtomCategory;
-        return ATOM_CATEGORIES[cat]?.color ?? '#6b7280';
-      })
+      .attr('fill', (d) => getAtomColor(d.data.id))
       .attr('stroke', (d) =>
         d.data.id === selectedTypeId ? 'var(--color-text)' : 'var(--color-bg)'
       )

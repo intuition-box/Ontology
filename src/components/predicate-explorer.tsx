@@ -1,67 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { PREDICATES, type PredicateRule } from '../data/predicates';
-import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
-import { SEMANTIC_GROUPS } from '../data/semantic-rankings';
-
-/** Re-derive predicate-to-group mapping for grouping in the dropdown */
-const PREDICATE_GROUP_MAP: Record<string, string> = {
-  trusts: 'Identity & Trust',
-  knows: 'Identity & Trust',
-  follows: 'Identity & Trust',
-  founderOf: 'Membership & Work',
-  memberOf: 'Membership & Work',
-  worksAt: 'Membership & Work',
-  employs: 'Membership & Work',
-  advisedBy: 'Membership & Work',
-  partnersWith: 'Membership & Work',
-  acquiredBy: 'Membership & Work',
-  created: 'Creation & Contribution',
-  contributorTo: 'Creation & Contribution',
-  develops: 'Creation & Contribution',
-  maintains: 'Creation & Contribution',
-  createdBy: 'Creation & Contribution',
-  developedBy: 'Creation & Contribution',
-  maintainedBy: 'Creation & Contribution',
-  authoredBy: 'Creation & Contribution',
-  publishedBy: 'Creation & Contribution',
-  expertIn: 'Interests & Expertise',
-  interestedIn: 'Interests & Expertise',
-  advocates: 'Interests & Expertise',
-  endorses: 'Social & Endorsement',
-  recommends: 'Social & Endorsement',
-  likes: 'Social & Endorsement',
-  reviewed: 'Social & Endorsement',
-  sponsors: 'Social & Endorsement',
-  supports: 'Social & Endorsement',
-  about: 'Social & Endorsement',
-  replyTo: 'Social & Endorsement',
-  reviewOf: 'Social & Endorsement',
-  locatedIn: 'Location & Events',
-  headquarteredIn: 'Location & Events',
-  attendedEvent: 'Location & Events',
-  organizedEvent: 'Location & Events',
-  offers: 'Commerce & Products',
-  manufactures: 'Commerce & Products',
-  uses: 'Commerce & Products',
-  brandOf: 'Commerce & Products',
-  soldBy: 'Commerce & Products',
-  competitorOf: 'Commerce & Products',
-  dependsOn: 'Software & Tools',
-  alternativeTo: 'Software & Tools',
-  forkOf: 'Software & Tools',
-  implements: 'Software & Tools',
-  hostedBy: 'Software & Tools',
-  ownedBy: 'Blockchain & Onchain',
-  controlledBy: 'Blockchain & Onchain',
-  deployedOn: 'Blockchain & Onchain',
-  tokenOf: 'Blockchain & Onchain',
-  taggedWith: 'Content & Media',
-  partOf: 'Content & Media',
-  isA: 'Taxonomy & Classification',
-  relatedTo: 'Taxonomy & Classification',
-  subConceptOf: 'Taxonomy & Classification',
-  oppositeOf: 'Taxonomy & Classification',
-};
+import { PREDICATES, PREDICATE_GROUPS, type PredicateRule } from '../data/predicates';
+import { ATOM_TYPES } from '../data/atom-types';
+import { getAtomColor } from '../lib/atom-colors';
 
 interface PredicateExplorerProps {
   selectedPredicateId?: string | null;
@@ -88,36 +28,29 @@ export function PredicateExplorer({ selectedPredicateId: externalPredicateId, on
       (p) => p.label.toLowerCase().includes(sq) || p.id.toLowerCase().includes(sq)
     );
 
-    if (matches.length === 1) {
-      setInternalPredicateId(matches[0].id);
-    }
+    const only = matches.length === 1 ? matches[0] : null;
+    if (only) setInternalPredicateId(only.id);
   }, [searchQuery]);
 
   const selectedPredicateId = internalPredicateId;
 
   const groupedPredicates = useMemo(() => {
-    const groups: { label: string; predicates: PredicateRule[] }[] = [];
     const groupMap = new Map<string, PredicateRule[]>();
-
     for (const p of PREDICATES) {
-      const group = PREDICATE_GROUP_MAP[p.id] ?? 'Other';
-      if (!groupMap.has(group)) groupMap.set(group, []);
-      groupMap.get(group)!.push(p);
+      const bucket = groupMap.get(p.group);
+      if (bucket) bucket.push(p);
+      else groupMap.set(p.group, [p]);
     }
 
-    // Sort by SEMANTIC_GROUPS order
-    for (const groupLabel of SEMANTIC_GROUPS) {
+    // Preserve canonical group display order from PREDICATE_GROUPS.
+    const groups: { label: string; predicates: PredicateRule[] }[] = [];
+    for (const groupLabel of PREDICATE_GROUPS) {
       const preds = groupMap.get(groupLabel);
-      if (preds) groups.push({ label: groupLabel, predicates: preds });
-    }
-
-    // Any ungrouped
-    for (const [label, preds] of groupMap) {
-      if (!SEMANTIC_GROUPS.includes(label as (typeof SEMANTIC_GROUPS)[number])) {
-        groups.push({ label, predicates: preds });
+      if (preds) {
+        preds.sort((a, b) => a.priority - b.priority);
+        groups.push({ label: groupLabel, predicates: preds });
       }
     }
-
     return groups;
   }, []);
 
@@ -141,8 +74,8 @@ export function PredicateExplorer({ selectedPredicateId: externalPredicateId, on
           objectType: objectId,
           subjectLabel: subjAtom.label,
           objectLabel: objAtom.label,
-          subjectColor: ATOM_CATEGORIES[subjAtom.category].color,
-          objectColor: ATOM_CATEGORIES[objAtom.category].color,
+          subjectColor: getAtomColor(subjectId),
+          objectColor: getAtomColor(objectId),
           subjectCategory: subjAtom.category,
           objectCategory: objAtom.category,
         });
@@ -160,10 +93,7 @@ export function PredicateExplorer({ selectedPredicateId: externalPredicateId, on
     [selectedPredicateId, onSelectClaim]
   );
 
-  const definedTermAtom = ATOM_TYPES.find((t) => t.id === 'DefinedTerm');
-  const definedTermColor = definedTermAtom
-    ? ATOM_CATEGORIES[definedTermAtom.category as AtomCategory].color
-    : '#f97316';
+  const definedTermColor = getAtomColor('DefinedTerm');
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6" data-tutorial-step="predicate-explorer">

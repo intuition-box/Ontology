@@ -1,22 +1,17 @@
-import { useState, useCallback } from 'react';
-import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
+import { useState } from 'react';
+import { getAtomColor } from '../lib/atom-colors';
+import { useClaimWorkspace } from '../lib/use-claim-workspace';
 import type { ClaimEntry } from '../types';
 
 const MAX_HISTORY = 50;
 
 interface ClaimHistoryProps {
-  history: ClaimEntry[];
-  onHistoryChange: (history: ClaimEntry[]) => void;
-  onRestore: (entry: ClaimEntry) => void;
   searchQuery?: string;
 }
 
-export function ClaimHistory({ history, onHistoryChange, onRestore, searchQuery }: ClaimHistoryProps) {
+export function ClaimHistory({ searchQuery }: ClaimHistoryProps) {
+  const { history, clearHistory, restoreClaim } = useClaimWorkspace();
   const [isExpanded, setIsExpanded] = useState(false);
-
-  const handleClear = useCallback(() => {
-    onHistoryChange([]);
-  }, [onHistoryChange]);
 
   const sq = (searchQuery ?? '').trim().toLowerCase();
   const filteredHistory = sq
@@ -66,12 +61,12 @@ export function ClaimHistory({ history, onHistoryChange, onRestore, searchQuery 
         <div className="border-t border-[var(--color-border)]">
           <div className="max-h-64 overflow-y-auto">
             {filteredHistory.map((entry) => (
-              <HistoryRow key={entry.id} entry={entry} onRestore={onRestore} />
+              <HistoryRow key={entry.id} entry={entry} onRestore={restoreClaim} />
             ))}
           </div>
           <div className="border-t border-[var(--color-border)] px-4 py-2 flex justify-center">
             <button
-              onClick={handleClear}
+              onClick={clearHistory}
               className="focus-ring h-7 inline-flex items-center rounded-md px-3 text-xs font-medium text-[var(--color-text-muted)] bg-[var(--color-surface-raised)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
             >
               Clear all
@@ -84,15 +79,8 @@ export function ClaimHistory({ history, onHistoryChange, onRestore, searchQuery 
 }
 
 function HistoryRow({ entry, onRestore }: { entry: ClaimEntry; onRestore: (entry: ClaimEntry) => void }) {
-  const subjectAtom = ATOM_TYPES.find((t) => t.id === entry.subjectType);
-  const objectAtom = ATOM_TYPES.find((t) => t.id === entry.objectType);
-
-  const subjectColor = subjectAtom
-    ? ATOM_CATEGORIES[subjectAtom.category as AtomCategory].color
-    : 'var(--color-text)';
-  const objectColor = objectAtom
-    ? ATOM_CATEGORIES[objectAtom.category as AtomCategory].color
-    : 'var(--color-text)';
+  const subjectColor = getAtomColor(entry.subjectType);
+  const objectColor = getAtomColor(entry.objectType);
 
   return (
     <button

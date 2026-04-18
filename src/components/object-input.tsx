@@ -30,8 +30,9 @@ export function ObjectInput({
   const selectedAtomType = ATOM_TYPES.find((t) => t.id === selectedType);
 
   // Auto-select type if only one option
-  if (expectedTypes.length === 1 && selectedType !== expectedTypes[0] && !disabled) {
-    onTypeChange(expectedTypes[0]);
+  const onlyExpected = expectedTypes.length === 1 ? expectedTypes[0] : null;
+  if (onlyExpected && selectedType !== onlyExpected && !disabled) {
+    onTypeChange(onlyExpected);
   }
 
   const handleTypeSelect = (typeId: string) => {

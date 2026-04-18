@@ -64,6 +64,25 @@ export const EXAMPLE_CLAIMS: Record<string, ExampleClaim[]> = {
   Service: [
     { subject: 'Alchemy API', subjectType: 'Service', predicateId: 'soldBy', predicateLabel: 'soldBy', object: 'Alchemy', objectType: 'Organization' },
   ],
+  HumanSkill: [
+    { subject: 'Smart Contract Development', subjectType: 'HumanSkill', predicateId: 'relatedTo', predicateLabel: 'relatedTo', object: 'Solidity', objectType: 'DefinedTerm' },
+  ],
+  SoftSkill: [
+    { subject: 'Leadership', subjectType: 'SoftSkill', predicateId: 'complementsSkill', predicateLabel: 'complementsSkill', object: 'Communication', objectType: 'SoftSkill' },
+    { subject: 'Teamwork', subjectType: 'SoftSkill', predicateId: 'requiresSkill', predicateLabel: 'requiresSkill', object: 'Communication', objectType: 'SoftSkill' },
+  ],
+  HardSkill: [
+    { subject: 'Solidity Programming', subjectType: 'HardSkill', predicateId: 'requiresSkill', predicateLabel: 'requiresSkill', object: 'JavaScript', objectType: 'HardSkill' },
+    { subject: 'Protocol Design', subjectType: 'HardSkill', predicateId: 'complementsSkill', predicateLabel: 'complementsSkill', object: 'Game Theory', objectType: 'HardSkill' },
+  ],
+  AgentSkill: [
+    { subject: 'Code Generation', subjectType: 'AgentSkill', predicateId: 'enabledBy', predicateLabel: 'enabledBy', object: 'Claude', objectType: 'SoftwareApplication' },
+    { subject: 'Smart Contract Auditing', subjectType: 'AgentSkill', predicateId: 'supersedes', predicateLabel: 'supersedes', object: 'Manual Code Review', objectType: 'HumanSkill' },
+  ],
+  Agent: [
+    { subject: 'Claude Code', subjectType: 'Agent', predicateId: 'createdBy', predicateLabel: 'createdBy', object: 'Anthropic', objectType: 'Organization' },
+    { subject: 'Devin', subjectType: 'Agent', predicateId: 'taggedWith', predicateLabel: 'taggedWith', object: 'Software Engineering', objectType: 'DefinedTerm' },
+  ],
   SoftwareApplication: [
     { subject: 'MetaMask Extension', subjectType: 'SoftwareApplication', predicateId: 'developedBy', predicateLabel: 'developedBy', object: 'ConsenSys', objectType: 'Organization' },
   ],

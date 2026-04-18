@@ -6,6 +6,44 @@ export interface HierarchyNode {
 }
 
 /**
+ * Returns the parent node ID for a given type, or null if it's a root child.
+ * Walks the hierarchy tree to find the parent.
+ */
+export function getParentTypeId(typeId: string): string | null {
+  function search(node: HierarchyNode): string | null {
+    if (node.children) {
+      for (const child of node.children) {
+        if (child.id === typeId) return node.id;
+        const found = search(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  const parentId = search(ATOM_HIERARCHY);
+  // 'Thing' is the root — don't treat it as a meaningful parent for inheritance
+  // unless the type is a direct child of Thing (those are top-level, no inheritance)
+  if (parentId === 'Thing') return null;
+  return parentId;
+}
+
+/**
+ * Returns the full ancestor chain for a type (excluding Thing).
+ * E.g. for HardSkill → ['HumanSkill']
+ */
+export function getAncestorTypeIds(typeId: string): string[] {
+  const ancestors: string[] = [];
+  let current = typeId;
+  while (true) {
+    const parent = getParentTypeId(current);
+    if (!parent) break;
+    ancestors.push(parent);
+    current = parent;
+  }
+  return ancestors;
+}
+
+/**
  * Atom type hierarchy based on Schema.org inheritance + protocol-specific extensions.
  * All 36 types from the official intuition-data-structures repo.
  * Used for the D3 radial tree visualization.
@@ -83,6 +121,8 @@ export const ATOM_HIERARCHY: HierarchyNode = {
       children: [
         { id: 'SoftwareApplication', label: 'Software App', category: 'software' },
         { id: 'MobileApplication', label: 'Mobile App', category: 'software' },
+        { id: 'Agent', label: 'Agent', category: 'software' },
+        { id: 'AgentSkill', label: 'Agent Skill', category: 'software' },
       ],
     },
     {
@@ -112,6 +152,15 @@ export const ATOM_HIERARCHY: HierarchyNode = {
       id: 'AggregateRating',
       label: 'Aggregate Rating',
       category: 'social',
+    },
+    {
+      id: 'HumanSkill',
+      label: 'Human Skill',
+      category: 'skill',
+      children: [
+        { id: 'SoftSkill', label: 'Soft Skill', category: 'skill' },
+        { id: 'HardSkill', label: 'Hard Skill', category: 'skill' },
+      ],
     },
     {
       id: 'DefinedTerm',

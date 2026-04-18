@@ -192,7 +192,7 @@ export default function App() {
           }
         />
         <Route
-          path="/matrix"
+          path="/matrix/:types?"
           element={
             <EntityMatrixPage
               onSelectClaim={handleMatrixSelect}

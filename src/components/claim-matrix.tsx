@@ -14,6 +14,7 @@ import {
   type EntityMapping,
 } from '../data/semantic-rankings';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
+import { getParentTypeId } from '../data/hierarchy';
 
 interface ClaimMatrixProps {
   /** Single subject type filter (home page use case) */
@@ -48,20 +49,45 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
     });
   }, [subjectTypeId, filterTypeIds, searchQuery]);
 
-  const groupedMappings = useMemo(() => {
-    const groups: { label: string; mappings: EntityMapping[] }[] = [];
-    let currentGroup = '';
+  // Determine which single type to compute inheritance for
+  const inheritanceTypeId = subjectTypeId ?? (filterTypeIds?.size === 1 ? [...filterTypeIds][0] : null);
 
-    for (const mapping of allMappings) {
-      if (mapping.group !== currentGroup) {
-        currentGroup = mapping.group;
-        groups.push({ label: currentGroup, mappings: [] });
+  // Inherited mappings from parent type(s)
+  const inheritedSections = useMemo(() => {
+    if (!inheritanceTypeId) return [];
+
+    const sections: { parentId: string; parentLabel: string; groups: { label: string; mappings: EntityMapping[] }[] }[] = [];
+    // Build a set of own mapping keys to exclude duplicates
+    const ownKeys = new Set(allMappings.map((m) => `${m.subjectType}:${m.objectType}`));
+
+    let currentType = inheritanceTypeId;
+    while (true) {
+      const parentId = getParentTypeId(currentType);
+      if (!parentId) break;
+
+      const parentAtom = ATOM_TYPES.find((t) => t.id === parentId);
+      if (!parentAtom) break;
+
+      const parentMappings = getEntityMappingsForSubject(parentId).filter(
+        (m) => !ownKeys.has(`${inheritanceTypeId}:${m.objectType}`)
+      );
+
+      if (parentMappings.length > 0) {
+        const groups = groupMappings(parentMappings);
+        sections.push({ parentId, parentLabel: parentAtom.label, groups });
+        // Add these to ownKeys so grandparent doesn't duplicate
+        for (const m of parentMappings) {
+          ownKeys.add(`${inheritanceTypeId}:${m.objectType}`);
+        }
       }
-      groups[groups.length - 1].mappings.push(mapping);
+
+      currentType = parentId;
     }
 
-    return groups;
-  }, [allMappings]);
+    return sections;
+  }, [inheritanceTypeId, allMappings]);
+
+  const groupedMappings = useMemo(() => groupMappings(allMappings), [allMappings]);
 
   const handleRowClick = useCallback(
     (mapping: EntityMapping) => {
@@ -152,6 +178,69 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
         ))}
       </div>
 
+      {/* Inherited combinations from parent types */}
+      {inheritedSections.map((section) => (
+        <div key={section.parentId} className="mt-6">
+          <div className="flex items-center gap-2 mb-4 pt-4 border-t border-[var(--color-border)]">
+            <h3 className="text-sm font-semibold text-[var(--color-text-muted)]">
+              Inherited from <span className="text-[var(--color-accent)]">{section.parentLabel}</span>
+            </h3>
+            <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] px-1.5 py-0.5 rounded-full">
+              {section.groups.reduce((sum, g) => sum + g.mappings.length, 0)} combinations
+            </span>
+          </div>
+          <div className="space-y-1 opacity-80" role="list" aria-label={`Combinations inherited from ${section.parentLabel}`}>
+            {section.groups.map((group) => (
+              <div key={group.label} role="group" aria-label={group.label}>
+                <div className="pt-3 pb-1.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-accent)]/40">
+                    {group.label}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {group.mappings.map((mapping) => {
+                    const rowKey = `inherited-${section.parentId}:${mapping.subjectType}:${mapping.objectType}`;
+                    const hasMultiple = mapping.predicates.length > 1;
+
+                    if (hasMultiple) {
+                      return (
+                        <Dialog key={rowKey}>
+                          <DialogTrigger render={<div role="listitem" />}>
+                            <EntityRow
+                              mapping={mapping}
+                              definedTermColor={definedTermColor}
+                              inheritedSubjectTypeId={inheritanceTypeId ?? undefined}
+                            />
+                          </DialogTrigger>
+                          <DialogContent showCloseButton>
+                            <PredicateDialogBody
+                              mapping={mapping}
+                              definedTermColor={definedTermColor}
+                              onSelect={(predId) => handlePredicateClick(mapping, predId)}
+                            />
+                          </DialogContent>
+                        </Dialog>
+                      );
+                    }
+
+                    return (
+                      <div key={rowKey} role="listitem">
+                        <EntityRow
+                          mapping={mapping}
+                          definedTermColor={definedTermColor}
+                          onClick={() => handleRowClick(mapping)}
+                          inheritedSubjectTypeId={inheritanceTypeId ?? undefined}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
     </div>
   );
 }
@@ -162,12 +251,16 @@ function EntityRow({
   mapping,
   definedTermColor,
   onClick,
+  inheritedSubjectTypeId,
 }: {
   mapping: EntityMapping;
   definedTermColor: string;
   onClick?: () => void;
+  /** When set, displays this type as the subject instead of the mapping's subjectType */
+  inheritedSubjectTypeId?: string;
 }) {
-  const subjectAtom = ATOM_TYPES.find((t) => t.id === mapping.subjectType);
+  const displaySubjectId = inheritedSubjectTypeId ?? mapping.subjectType;
+  const subjectAtom = ATOM_TYPES.find((t) => t.id === displaySubjectId);
   const objectAtom = ATOM_TYPES.find((t) => t.id === mapping.objectType);
   if (!subjectAtom || !objectAtom) return null;
 
@@ -322,6 +415,21 @@ function PredicateCountPill({
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
+
+function groupMappings(mappings: EntityMapping[]): { label: string; mappings: EntityMapping[] }[] {
+  const groups: { label: string; mappings: EntityMapping[] }[] = [];
+  let currentGroup = '';
+
+  for (const mapping of mappings) {
+    if (mapping.group !== currentGroup) {
+      currentGroup = mapping.group;
+      groups.push({ label: currentGroup, mappings: [] });
+    }
+    groups[groups.length - 1].mappings.push(mapping);
+  }
+
+  return groups;
+}
 
 function getDefinedTermColor(): string {
   const dt = ATOM_TYPES.find((t) => t.id === 'DefinedTerm');

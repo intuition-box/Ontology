@@ -18,6 +18,25 @@ export const PREDICATE_GROUPS = [
 
 export type PredicateSemanticGroup = (typeof PREDICATE_GROUPS)[number];
 
+/**
+ * Grammatical form of the predicate label. Documentary for now — lets the
+ * glossary surface form variants and leaves the door open for form-aware
+ * ranking in the predicate picker once multiple forms per concept exist in
+ * the main PREDICATES list.
+ *
+ * - `bare`: imperative / bare infinitive — "trust", "follow", "like"
+ * - `third-person-singular`: "trusts", "follows", "likes"
+ * - `past`: "created", "authored", "attended"
+ * - `phrase`: multi-word or be-verb forms — "is part of", "member of"
+ * - `passive`: "backed by", "authored by", "acquired by"
+ */
+export type PredicateForm =
+  | 'bare'
+  | 'third-person-singular'
+  | 'past'
+  | 'phrase'
+  | 'passive';
+
 export interface PredicateRule {
   id: string;
   label: string;
@@ -28,10 +47,60 @@ export interface PredicateRule {
   group: PredicateSemanticGroup;
   /** Sort priority within the group (lower = first). */
   priority: number;
+  /** Grammatical form of the label. */
+  form: PredicateForm;
 }
 
-/** Raw predicate definition minus the group/priority metadata. */
-type PredicateDefinition = Omit<PredicateRule, 'group' | 'priority'>;
+/** Raw predicate definition minus the group/priority/form metadata. */
+type PredicateDefinition = Omit<PredicateRule, 'group' | 'priority' | 'form'>;
+
+/**
+ * Per-predicate grammatical form. Keyed by predicate ID; defaults to
+ * `third-person-singular` for predicates without an explicit entry (the most
+ * common form in the current list).
+ */
+const PREDICATE_FORMS: Record<string, PredicateForm> = {
+  // past tense
+  created: 'past',
+  reviewed: 'past',
+  attendedEvent: 'past',
+  organizedEvent: 'past',
+  authoredBy: 'passive',
+  publishedBy: 'passive',
+  createdBy: 'passive',
+  developedBy: 'passive',
+  maintainedBy: 'passive',
+  acquiredBy: 'passive',
+  advisedBy: 'passive',
+  forkOf: 'phrase',
+
+  // phrase / multi-word
+  memberOf: 'phrase',
+  founderOf: 'phrase',
+  worksAt: 'phrase',
+  contributorTo: 'phrase',
+  interestedIn: 'phrase',
+  expertIn: 'phrase',
+  locatedIn: 'phrase',
+  headquarteredIn: 'phrase',
+  partOf: 'phrase',
+  isA: 'phrase',
+  taggedWith: 'phrase',
+  alternativeTo: 'phrase',
+  reviewOf: 'phrase',
+  replyTo: 'phrase',
+  brandOf: 'phrase',
+  soldBy: 'passive',
+  hostedBy: 'passive',
+  tokenOf: 'phrase',
+  ownedBy: 'passive',
+  controlledBy: 'passive',
+  deployedOn: 'phrase',
+  subConceptOf: 'phrase',
+  oppositeOf: 'phrase',
+  about: 'phrase',
+  // Everything else defaults to 'third-person-singular'.
+};
 
 /** All subject type IDs that represent "software" broadly */
 const SOFTWARE_TYPES = ['SoftwareSourceCode', 'SoftwareApplication', 'MobileApplication'];
@@ -230,11 +299,18 @@ const DEFAULT_SEMANTICS = { group: PREDICATE_GROUPS[0], priority: 999 } as const
  */
 export const PREDICATES: PredicateRule[] = PREDICATE_DEFINITIONS.map((def) => {
   const semantics = PREDICATE_SEMANTICS[def.id] ?? DEFAULT_SEMANTICS;
+  const form = PREDICATE_FORMS[def.id] ?? 'third-person-singular';
   const subjectTypes =
     def.subjectTypes.includes('Person') && !def.subjectTypes.includes('Self')
       ? [...def.subjectTypes, 'Self']
       : def.subjectTypes;
-  return { ...def, subjectTypes, group: semantics.group, priority: semantics.priority };
+  return {
+    ...def,
+    subjectTypes,
+    group: semantics.group,
+    priority: semantics.priority,
+    form,
+  };
 });
 
 /**

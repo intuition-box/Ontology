@@ -13,6 +13,7 @@ import { ThemeSchema } from './lib/schemas';
 import { GLOBAL_SEARCH_DEBOUNCE_MS, TUTORIAL_ROUTE_SETTLE_MS } from './lib/timings';
 import { HomePage } from './pages/home';
 import { EntityMatrixPage } from './pages/entity-matrix';
+import { GlossaryPage } from './pages/glossary';
 import type { Theme } from './types';
 
 function getSystemTheme(): Theme {
@@ -106,6 +107,9 @@ export default function App() {
                 <NavLink to="/matrix" className={navLinkClass} data-tutorial-step="entity-matrix-link">
                   Matrix
                 </NavLink>
+                <NavLink to="/glossary" className={navLinkClass}>
+                  Glossary
+                </NavLink>
               </nav>
             </div>
 
@@ -143,6 +147,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/matrix" element={<EntityMatrixPage />} />
+          <Route path="/glossary" element={<GlossaryPage />} />
         </Routes>
       </div>
     </ClaimWorkspaceProvider>

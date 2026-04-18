@@ -79,10 +79,10 @@ export const ATOM_TYPES: AtomType[] = [
       'First-person subject. Anyone who stakes on a claim with `Self` asserts it about themselves — the claim aggregates across stakers rather than forking into parallel per-identity copies.',
     onchainFields: [],
     enrichmentFields: [],
-    // At stake time, `Self` resolves to the staker — typically a Person.
-    // The schema panel surfaces the Person fields as the "typical resolution"
-    // so users see what identity data ultimately backs the claim.
-    resolvesToTypeIds: ['Person'],
+    // At stake time, `Self` resolves to the staker — a Person or an AI agent.
+    // The schema panel currently surfaces the first entry as the "typical
+    // resolution" so users see what identity data ultimately backs the claim.
+    resolvesToTypeIds: ['Person', 'AIAgent'],
   },
 
   // ─── Identity ──────────────────────────────────────────────
@@ -161,6 +161,31 @@ export const ATOM_TYPES: AtomType[] = [
     enrichmentFields: [
       { name: 'logo', type: 'string', required: false, description: 'Brand logo URL' },
       { name: 'description', type: 'string', required: false, description: 'Brand description' },
+    ],
+  },
+  {
+    id: 'AIAgent',
+    label: 'AI Agent',
+    // schema.org does not yet define an Agent / AIAgent type. Modeled as a
+    // custom atom for now, adjacent to Person and Organization. If schema.org
+    // (or an extension we adopt) adds one later, flip schemaOrgType to the
+    // canonical URL.
+    schemaOrgType: null,
+    pluginId: 'ai-agent',
+    category: 'identity',
+    description:
+      'An autonomous software actor — an LLM-backed assistant, agentic workflow, or bot — that can be the subject or object of a claim in its own right, distinct from the humans or organizations that operate it.',
+    onchainFields: [
+      { name: 'name', type: 'string', required: true, description: 'Agent name (e.g. "Claude Sonnet 4.5", "AliceBot")' },
+      { name: 'identifier', type: 'string', required: true, description: 'Stable identifier (DID, wallet address, or canonical handle)' },
+    ],
+    enrichmentFields: [
+      { name: 'operator', type: 'string', required: false, description: 'Person or organization responsible for the agent' },
+      { name: 'modelFamily', type: 'string', required: false, description: 'Model family (e.g. "gpt", "claude", "llama")' },
+      { name: 'version', type: 'string', required: false, description: 'Version identifier' },
+      { name: 'capabilities', type: 'string[]', required: false, description: 'What the agent can do (tool use, code exec, browsing…)' },
+      { name: 'url', type: 'string', required: false, description: 'Canonical URL or API endpoint' },
+      { name: 'description', type: 'string', required: false, description: 'Human-readable description' },
     ],
   },
 

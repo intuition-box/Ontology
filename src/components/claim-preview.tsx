@@ -64,9 +64,10 @@ export function ClaimPreview({
       : predicate.label
     : '___';
 
-  // The visible "I" rendering when Self is selected — keep the user's typed
-  // casing when they wrote "me" or "we", but default to capital I.
-  const displayedSubject = isSelf ? normalizeSelfDisplay(subject) : subject;
+  // When the subject type is `Self`, the typed text is semantically moot —
+  // the atom resolves to whoever stakes, regardless of what label the user
+  // typed. Always display `I` so the preview matches the claim's real meaning.
+  const displayedSubject = isSelf ? 'I' : subject;
 
   return (
     <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
@@ -182,9 +183,3 @@ function SharedClaimStakersPreview({
   );
 }
 
-/** Normalize the rendered Self subject — "i" → "I", keep "we"/"us"/"me" as typed. */
-function normalizeSelfDisplay(raw: string): string {
-  const trimmed = raw.trim();
-  if (/^i$/i.test(trimmed)) return 'I';
-  return trimmed.toLowerCase();
-}

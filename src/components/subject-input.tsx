@@ -39,6 +39,18 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
     const result = classifySubject(debouncedValue);
     setClassification(result);
 
+    // Empty input always clears the type and hides the picker.
+    if (!debouncedValue.trim()) {
+      onTypeChange(null);
+      setShowTypePicker(false);
+      setShowAllTypes(false);
+      return;
+    }
+
+    // If a type is already set (auto-detected earlier or user-chosen),
+    // respect it. Users change the type by clicking a chip, not by retyping.
+    if (selectedType !== null) return;
+
     if (result.detectedType && result.confidence === 'high') {
       onTypeChange(result.detectedType);
       setShowTypePicker(false);
@@ -46,14 +58,10 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
     } else if (result.detectedType && result.confidence === 'medium') {
       onTypeChange(result.detectedType);
       setShowTypePicker(true);
-    } else if (debouncedValue.trim()) {
-      setShowTypePicker(true);
     } else {
-      onTypeChange(null);
-      setShowTypePicker(false);
-      setShowAllTypes(false);
+      setShowTypePicker(true);
     }
-  }, [debouncedValue, onTypeChange]);
+  }, [debouncedValue, selectedType, onTypeChange]);
 
   const handleTypeSelect = (typeId: string) => {
     onTypeChange(typeId);

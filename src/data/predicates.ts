@@ -190,7 +190,7 @@ const PREDICATE_SEMANTICS: Record<string, { group: PredicateSemanticGroup; prior
  */
 const PREDICATE_DEFINITIONS: PredicateDefinition[] = [
   // ─── Person → Person ──────────────────────────────────────
-  { id: 'trusts', label: 'trusts', description: 'Subject places trust in object', subjectTypes: ['Person'], objectTypes: ['Person'] },
+  { id: 'trusts', label: 'trusts', description: 'Subject places trust in object', subjectTypes: ['Person', ...ORG_TYPES], objectTypes: ['Person', ...ORG_TYPES, ...SOFTWARE_TYPES, ...CREATIVE_WORK_TYPES, 'Product', 'Service', 'WebSite', 'DefinedTerm', 'Place', 'Event', 'EthereumAccount', 'EthereumSmartContract', 'EthereumERC20', 'Thing'] },
   { id: 'follows', label: 'follows', description: 'Subject follows or subscribes to object', subjectTypes: ['Person'], objectTypes: ['Person', ...ORG_TYPES, 'MusicGroup'] },
   { id: 'knows', label: 'knows', description: 'Subject has a personal connection with object', subjectTypes: ['Person'], objectTypes: ['Person'] },
   { id: 'endorses', label: 'endorses', description: 'Subject endorses or vouches for object', subjectTypes: ['Person'], objectTypes: ['Person', ...ORG_TYPES, ...SOFTWARE_TYPES, 'Product', 'Service'] },

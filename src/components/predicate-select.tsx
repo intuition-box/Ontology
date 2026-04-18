@@ -1,4 +1,6 @@
 import { getPredicatesForSubject, type PredicateRule } from '../data/predicates';
+import { ATOM_TYPES } from '../data/atom-types';
+import { LockNote } from './lock-note';
 
 interface PredicateSelectProps {
   subjectType: string | null;
@@ -10,6 +12,8 @@ interface PredicateSelectProps {
 export function PredicateSelect({ subjectType, value, onChange, disabled }: PredicateSelectProps) {
   const predicates = subjectType ? getPredicatesForSubject(subjectType) : [];
   const selected = predicates.find((p) => p.id === value);
+  const onlyPredicate = predicates.length === 1 ? predicates[0] : null;
+  const subjectAtom = subjectType ? ATOM_TYPES.find((t) => t.id === subjectType) : undefined;
 
   return (
     <div className="flex flex-col gap-2">
@@ -43,6 +47,14 @@ export function PredicateSelect({ subjectType, value, onChange, disabled }: Pred
         <p className="text-xs text-[var(--color-text-muted)]">
           {selected.description}
         </p>
+      )}
+
+      {!disabled && onlyPredicate && subjectAtom && (
+        <LockNote>
+          Only <code className="text-[var(--color-text-secondary)]">{onlyPredicate.label}</code>{' '}
+          is defined for{' '}
+          <code className="text-[var(--color-text-secondary)]">{subjectAtom.label}</code> subjects.
+        </LockNote>
       )}
 
       {!disabled && predicates.length === 0 && subjectType && (

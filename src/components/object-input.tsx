@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { getObjectTypesForPredicate } from '../data/predicates';
+import { getObjectTypesForPredicate, PREDICATES } from '../data/predicates';
 import { ATOM_TYPES, type AtomType } from '../data/atom-types';
 import { TypeBadge } from './type-badge';
+import { LockNote } from './lock-note';
 
 interface ObjectInputProps {
   predicateId: string | null;
@@ -28,9 +29,13 @@ export function ObjectInput({
     .filter((t): t is AtomType => t !== undefined);
 
   const selectedAtomType = ATOM_TYPES.find((t) => t.id === selectedType);
+  const predicate = predicateId ? PREDICATES.find((p) => p.id === predicateId) : undefined;
 
   // Auto-select type if only one option
   const onlyExpected = expectedTypes.length === 1 ? expectedTypes[0] : null;
+  const onlyExpectedAtom = onlyExpected
+    ? ATOM_TYPES.find((t) => t.id === onlyExpected)
+    : undefined;
   if (onlyExpected && selectedType !== onlyExpected && !disabled) {
     onTypeChange(onlyExpected);
   }
@@ -71,6 +76,14 @@ export function ObjectInput({
           </button>
         )}
       </div>
+
+      {!disabled && onlyExpectedAtom && predicate && (
+        <LockNote>
+          Only <code className="text-[var(--color-text-secondary)]">{onlyExpectedAtom.label}</code>{' '}
+          is valid here — per the{' '}
+          <code className="text-[var(--color-text-secondary)]">{predicate.label}</code> definition.
+        </LockNote>
+      )}
 
       {!disabled && (showTypePicker || (!selectedType && expectedAtomTypes.length > 1)) && expectedAtomTypes.length > 1 && (
         <div className="flex flex-wrap gap-1.5">

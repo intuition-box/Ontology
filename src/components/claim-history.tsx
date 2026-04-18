@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getAtomColor } from '../lib/atom-colors';
+import { conjugateForSelf, isSelfSubject } from '../lib/conjugate';
 import { useClaimWorkspace } from '../lib/use-claim-workspace';
 import type { ClaimEntry } from '../types';
 
@@ -89,9 +90,15 @@ function HistoryRow({ entry, onRestore }: { entry: ClaimEntry; onRestore: (entry
       title="Click to restore this claim"
     >
       <div className="flex items-center gap-1.5 min-w-0 flex-1 font-mono text-xs">
-        <span className="truncate" style={{ color: subjectColor }}>{entry.subject}</span>
+        <span className="truncate" style={{ color: subjectColor }}>
+          {isSelfSubject(entry.subjectType) ? 'I' : entry.subject}
+        </span>
         <span className="text-[var(--color-text-muted)] shrink-0">—</span>
-        <span className="text-[var(--color-accent)] shrink-0">{entry.predicateLabel}</span>
+        <span className="text-[var(--color-accent)] shrink-0">
+          {isSelfSubject(entry.subjectType)
+            ? conjugateForSelf(entry.predicateId, entry.predicateLabel)
+            : entry.predicateLabel}
+        </span>
         <span className="text-[var(--color-text-muted)] shrink-0">—</span>
         <span className="truncate" style={{ color: objectColor }}>{entry.object}</span>
       </div>

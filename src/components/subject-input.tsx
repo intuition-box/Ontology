@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { classifySubject, type ClassificationResult } from '../lib/subject-classifier';
-import { useDebounce } from '../lib/use-debounce';
+import { conjugateForSelf, isSelfSubject } from '../lib/conjugate';
 import { SUBJECT_CLASSIFY_DEBOUNCE_MS } from '../lib/timings';
+import { useDebounce } from '../lib/use-debounce';
+import { useLocalStorage } from '../lib/use-local-storage';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomType, type AtomCategory } from '../data/atom-types';
 import { EXAMPLE_CLAIMS, type ExampleClaim } from '../data/example-claims';
 import { TypeBadge } from './type-badge';
 
 /** Quick picks shown in the compact type selector */
 const QUICK_PICK_IDS = [
-  'Person', 'Organization', 'SoftwareSourceCode', 'DefinedTerm',
+  'Self', 'Person', 'Organization', 'SoftwareSourceCode', 'DefinedTerm',
   'Place', 'Product', 'Event', 'Thing',
 ];
 
@@ -27,6 +29,10 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
   });
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showAllTypes, setShowAllTypes] = useState(false);
+  // First-run explainer for the Self atom — shown the first time a user selects
+  // it, suppressed afterwards so it doesn't become noise.
+  const [selfIntroSeen, setSelfIntroSeen] = useLocalStorage('ontology-self-intro-seen', false);
+  const isSelf = isSelfSubject(selectedType);
 
   // Debounce typing before classifying so we don't thrash the picker state
   // on every keystroke. Uses the shared debounce hook for consistency with
@@ -92,6 +98,13 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
         <p id="subject-warning" className="text-xs text-amber-400" role="alert">{classification.warning}</p>
       )}
 
+      {isSelf && (
+        <SelfAtomNote
+          expanded={!selfIntroSeen}
+          onDismiss={() => setSelfIntroSeen(true)}
+        />
+      )}
+
       {showTypePicker && value.trim() && !showAllTypes && (
         <div className="flex flex-wrap gap-1.5">
           <span className="text-xs text-[var(--color-text-muted)] self-center mr-1">Type:</span>
@@ -132,8 +145,11 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
           {EXAMPLE_CLAIMS[selectedType].map((example, i) => {
             const personalized: ExampleClaim = {
               ...example,
-              subject: value.trim(),
+              subject: isSelf ? 'I' : value.trim(),
             };
+            const shownPredicate = isSelf
+              ? conjugateForSelf(example.predicateId, example.predicateLabel)
+              : example.predicateLabel;
             return (
               <button
                 key={i}
@@ -142,7 +158,7 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
               >
                 <span className="text-[var(--color-text)] truncate">{personalized.subject}</span>
                 <span className="text-[var(--color-text-muted)]">—</span>
-                <span className="text-[var(--color-accent)]">{example.predicateLabel}</span>
+                <span className="text-[var(--color-accent)]">{shownPredicate}</span>
                 <span className="text-[var(--color-text-muted)]">—</span>
                 <span className="text-[var(--color-text)]">{example.object}</span>
               </button>
@@ -150,6 +166,59 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Informational badge shown when the `Self` atom is selected. Expanded on
+ * first encounter so the user understands why `I` is a deliberate choice
+ * (shared, aggregatable claims) rather than a grammatical mistake.
+ * Collapses to a compact chip on subsequent visits after dismiss.
+ */
+function SelfAtomNote({ expanded, onDismiss }: { expanded: boolean; onDismiss: () => void }) {
+  const accent = ATOM_CATEGORIES.self.color;
+
+  if (!expanded) {
+    return (
+      <p
+        className="text-xs text-[var(--color-text-muted)]"
+        style={{ color: `color-mix(in srgb, ${accent} 70%, var(--color-text-muted))` }}
+      >
+        Using <strong>Self</strong> — this claim aggregates across every staker.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-md p-3 text-xs"
+      role="note"
+      aria-label="About the Self atom"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${accent} 8%, transparent)`,
+        border: `1px solid color-mix(in srgb, ${accent} 25%, transparent)`,
+        color: 'var(--color-text-secondary)',
+      }}
+    >
+      <p className="font-semibold mb-1" style={{ color: accent }}>
+        Shared claim with <code>Self</code>
+      </p>
+      <p className="leading-relaxed">
+        Anyone who stakes will resolve <code>I</code> to themselves, so multiple people
+        staking <em>“I follow Intuition</em> is one claim with multiple signals — not
+        various claims. Prefer <code>Self</code> for statements about
+        yourself.
+      </p>
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="focus-ring rounded px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
+        >
+          Got it
+        </button>
+      </div>
     </div>
   );
 }

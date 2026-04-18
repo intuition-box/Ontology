@@ -20,15 +20,12 @@ export function classifySubject(input: string): ClassificationResult {
     return { detectedType: null, confidence: 'low' };
   }
 
-  // First-person detection
+  // First-person detection — resolves to the Self atom, a deictic singleton.
+  // No warning: `Self` is a first-class protocol feature (shared/aggregatable
+  // claims), not a grammatical mistake. The claim-preview layer handles
+  // first-person verb conjugation so the displayed text reads naturally.
   if (FIRST_PERSON_PATTERNS.test(trimmed)) {
-    return {
-      detectedType: 'Person',
-      confidence: 'high',
-      warning:
-        'First-person subjects ("I", "me") create grammatically awkward claims. ' +
-        'Use your name or identifier instead. e.g., "alice trusts bob" not "I trusts bob".',
-    };
+    return { detectedType: 'Self', confidence: 'high' };
   }
 
   // Ethereum address

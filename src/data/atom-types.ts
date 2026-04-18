@@ -1,5 +1,6 @@
 export type AtomCategory =
   | 'identity'
+  | 'self'
   | 'location'
   | 'creative-work'
   | 'media'
@@ -37,6 +38,7 @@ export interface AtomType {
 
 export const ATOM_CATEGORIES: Record<AtomCategory, { label: string; color: string }> = {
   identity: { label: 'Identity', color: '#6366f1' },
+  self: { label: 'Self', color: '#fb7185' },
   location: { label: 'Location', color: '#f59e0b' },
   'creative-work': { label: 'Creative Work', color: '#ec4899' },
   media: { label: 'Media', color: '#8b5cf6' },
@@ -55,6 +57,23 @@ export const ATOM_CATEGORIES: Record<AtomCategory, { label: string; color: strin
  * @see https://github.com/0xIntuition/intuition-data-structures/tree/main/classifications
  */
 export const ATOM_TYPES: AtomType[] = [
+  // ─── Self ──────────────────────────────────────────────────
+  {
+    id: 'Self',
+    label: 'I',
+    // Deictic singleton — not a schema.org type. A `Self` subject resolves to
+    // whoever is staking the claim, so the claim is reusable: everyone who
+    // stakes `I follows Claude` agrees about themselves, and the system pools
+    // signal on one canonical claim instead of fragmenting across duplicates.
+    schemaOrgType: null,
+    pluginId: 'self',
+    category: 'self',
+    description:
+      'First-person subject. Anyone who stakes on a claim with `Self` asserts it about themselves — the claim aggregates across stakers rather than forking into parallel per-identity copies.',
+    onchainFields: [],
+    enrichmentFields: [],
+  },
+
   // ─── Identity ──────────────────────────────────────────────
   {
     id: 'Person',

@@ -218,9 +218,23 @@ const PREDICATE_DEFINITIONS: PredicateDefinition[] = [
 /** Fallback for any future definitions missing from PREDICATE_SEMANTICS. */
 const DEFAULT_SEMANTICS = { group: PREDICATE_GROUPS[0], priority: 999 } as const;
 
+/**
+ * Final predicate list consumed by the app.
+ *
+ * Built in two passes:
+ *   1. Attach semantic group + priority from PREDICATE_SEMANTICS (or fallback).
+ *   2. Anywhere a predicate accepts `Person` as a subject, also accept `Self`
+ *      — the first-person deictic atom. Derived rather than hand-maintained
+ *      so any new Person-compatible predicate added later automatically
+ *      works with `I`.
+ */
 export const PREDICATES: PredicateRule[] = PREDICATE_DEFINITIONS.map((def) => {
   const semantics = PREDICATE_SEMANTICS[def.id] ?? DEFAULT_SEMANTICS;
-  return { ...def, group: semantics.group, priority: semantics.priority };
+  const subjectTypes =
+    def.subjectTypes.includes('Person') && !def.subjectTypes.includes('Self')
+      ? [...def.subjectTypes, 'Self']
+      : def.subjectTypes;
+  return { ...def, subjectTypes, group: semantics.group, priority: semantics.priority };
 });
 
 /**

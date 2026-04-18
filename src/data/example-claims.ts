@@ -12,6 +12,11 @@ export interface ExampleClaim {
  * 2-3 realistic claims per type to help users understand the system.
  */
 export const EXAMPLE_CLAIMS: Record<string, ExampleClaim[]> = {
+  Self: [
+    { subject: 'I', subjectType: 'Self', predicateId: 'trusts', predicateLabel: 'trusts', object: 'Billy', objectType: 'Person' },
+    { subject: 'I', subjectType: 'Self', predicateId: 'follows', predicateLabel: 'follows', object: 'Intuition Foundation', objectType: 'Organization' },
+    { subject: 'I', subjectType: 'Self', predicateId: 'expertIn', predicateLabel: 'expertIn', object: 'Cryptography', objectType: 'DefinedTerm' },
+  ],
   Person: [
     { subject: 'Billy', subjectType: 'Person', predicateId: 'founderOf', predicateLabel: 'founderOf', object: 'Intuition Foundation', objectType: 'Organization' },
     { subject: 'Billy', subjectType: 'Person', predicateId: 'expertIn', predicateLabel: 'expertIn', object: 'Cryptography', objectType: 'DefinedTerm' },

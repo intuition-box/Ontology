@@ -1,10 +1,37 @@
+/**
+ * Semantic groups for predicate clustering, in display order. Single source
+ * of truth — UI layers sort against this tuple's index.
+ */
+export const PREDICATE_GROUPS = [
+  'Identity & Trust',
+  'Membership & Work',
+  'Creation & Contribution',
+  'Interests & Expertise',
+  'Social & Endorsement',
+  'Location & Events',
+  'Commerce & Products',
+  'Software & Tools',
+  'Blockchain & Onchain',
+  'Content & Media',
+  'Taxonomy & Classification',
+] as const;
+
+export type PredicateSemanticGroup = (typeof PREDICATE_GROUPS)[number];
+
 export interface PredicateRule {
   id: string;
   label: string;
   description: string;
   subjectTypes: string[];
   objectTypes: string[];
+  /** Semantic group this predicate belongs to. */
+  group: PredicateSemanticGroup;
+  /** Sort priority within the group (lower = first). */
+  priority: number;
 }
+
+/** Raw predicate definition minus the group/priority metadata. */
+type PredicateDefinition = Omit<PredicateRule, 'group' | 'priority'>;
 
 /** All subject type IDs that represent "software" broadly */
 const SOFTWARE_TYPES = ['SoftwareSourceCode', 'SoftwareApplication', 'MobileApplication'];
@@ -14,12 +41,85 @@ const CREATIVE_WORK_TYPES = ['Article', 'NewsArticle', 'Book', 'Movie', 'TVSerie
 const ORG_TYPES = ['Organization', 'LocalBusiness', 'Brand'];
 
 /**
- * Predicate compatibility matrix.
+ * Per-predicate semantic group and within-group priority.
+ * Keyed by predicate ID; consumed once at module init to build PREDICATES.
+ */
+const PREDICATE_SEMANTICS: Record<string, { group: PredicateSemanticGroup; priority: number }> = {
+  trusts:          { group: 'Identity & Trust', priority: 1 },
+  knows:           { group: 'Identity & Trust', priority: 2 },
+  follows:         { group: 'Identity & Trust', priority: 3 },
+
+  founderOf:       { group: 'Membership & Work', priority: 1 },
+  memberOf:        { group: 'Membership & Work', priority: 2 },
+  worksAt:         { group: 'Membership & Work', priority: 3 },
+  employs:         { group: 'Membership & Work', priority: 4 },
+  advisedBy:       { group: 'Membership & Work', priority: 5 },
+  partnersWith:    { group: 'Membership & Work', priority: 6 },
+  acquiredBy:      { group: 'Membership & Work', priority: 7 },
+
+  created:         { group: 'Creation & Contribution', priority: 1 },
+  contributorTo:   { group: 'Creation & Contribution', priority: 2 },
+  develops:        { group: 'Creation & Contribution', priority: 3 },
+  maintains:       { group: 'Creation & Contribution', priority: 4 },
+  createdBy:       { group: 'Creation & Contribution', priority: 5 },
+  developedBy:     { group: 'Creation & Contribution', priority: 6 },
+  maintainedBy:    { group: 'Creation & Contribution', priority: 7 },
+  authoredBy:      { group: 'Creation & Contribution', priority: 8 },
+  publishedBy:     { group: 'Creation & Contribution', priority: 9 },
+
+  expertIn:        { group: 'Interests & Expertise', priority: 1 },
+  interestedIn:    { group: 'Interests & Expertise', priority: 2 },
+  advocates:       { group: 'Interests & Expertise', priority: 3 },
+
+  endorses:        { group: 'Social & Endorsement', priority: 1 },
+  recommends:      { group: 'Social & Endorsement', priority: 2 },
+  likes:           { group: 'Social & Endorsement', priority: 3 },
+  reviewed:        { group: 'Social & Endorsement', priority: 4 },
+  sponsors:        { group: 'Social & Endorsement', priority: 5 },
+  supports:        { group: 'Social & Endorsement', priority: 6 },
+  about:           { group: 'Social & Endorsement', priority: 7 },
+  replyTo:         { group: 'Social & Endorsement', priority: 8 },
+  reviewOf:        { group: 'Social & Endorsement', priority: 9 },
+
+  locatedIn:       { group: 'Location & Events', priority: 1 },
+  headquarteredIn: { group: 'Location & Events', priority: 2 },
+  attendedEvent:   { group: 'Location & Events', priority: 3 },
+  organizedEvent:  { group: 'Location & Events', priority: 4 },
+
+  offers:          { group: 'Commerce & Products', priority: 1 },
+  manufactures:    { group: 'Commerce & Products', priority: 2 },
+  uses:            { group: 'Commerce & Products', priority: 3 },
+  brandOf:         { group: 'Commerce & Products', priority: 4 },
+  soldBy:          { group: 'Commerce & Products', priority: 5 },
+  competitorOf:    { group: 'Commerce & Products', priority: 6 },
+
+  dependsOn:       { group: 'Software & Tools', priority: 1 },
+  alternativeTo:   { group: 'Software & Tools', priority: 2 },
+  forkOf:          { group: 'Software & Tools', priority: 3 },
+  implements:      { group: 'Software & Tools', priority: 4 },
+  hostedBy:        { group: 'Software & Tools', priority: 5 },
+
+  ownedBy:         { group: 'Blockchain & Onchain', priority: 1 },
+  controlledBy:    { group: 'Blockchain & Onchain', priority: 2 },
+  deployedOn:      { group: 'Blockchain & Onchain', priority: 3 },
+  tokenOf:         { group: 'Blockchain & Onchain', priority: 4 },
+
+  taggedWith:      { group: 'Content & Media', priority: 1 },
+  partOf:          { group: 'Content & Media', priority: 2 },
+
+  isA:             { group: 'Taxonomy & Classification', priority: 1 },
+  relatedTo:       { group: 'Taxonomy & Classification', priority: 2 },
+  subConceptOf:    { group: 'Taxonomy & Classification', priority: 3 },
+  oppositeOf:      { group: 'Taxonomy & Classification', priority: 4 },
+};
+
+/**
+ * Predicate compatibility matrix — raw definitions.
  * Each predicate defines which subject types can use it and what object types are expected.
  * Types use atom type IDs from atom-types.ts.
  * @see https://github.com/0xIntuition/intuition-data-structures
  */
-export const PREDICATES: PredicateRule[] = [
+const PREDICATE_DEFINITIONS: PredicateDefinition[] = [
   // ─── Person → Person ──────────────────────────────────────
   { id: 'trusts', label: 'trusts', description: 'Subject places trust in object', subjectTypes: ['Person'], objectTypes: ['Person'] },
   { id: 'follows', label: 'follows', description: 'Subject follows or subscribes to object', subjectTypes: ['Person'], objectTypes: ['Person', ...ORG_TYPES, 'MusicGroup'] },
@@ -114,6 +214,14 @@ export const PREDICATES: PredicateRule[] = [
   { id: 'isA', label: 'isA', description: 'Entity is an instance of type/concept', subjectTypes: ['Thing', 'Person', ...ORG_TYPES, ...SOFTWARE_TYPES, 'Product', 'Service'], objectTypes: ['DefinedTerm', 'Thing'] },
   { id: 'partOf', label: 'partOf', description: 'Entity is part of larger entity', subjectTypes: ['Thing', 'Person', 'WebPage', 'MusicRecording', 'PodcastEpisode', 'Article'], objectTypes: ['Thing', ...ORG_TYPES, 'MusicAlbum', 'PodcastSeries', 'Book', 'WebSite'] },
 ];
+
+/** Fallback for any future definitions missing from PREDICATE_SEMANTICS. */
+const DEFAULT_SEMANTICS = { group: PREDICATE_GROUPS[0], priority: 999 } as const;
+
+export const PREDICATES: PredicateRule[] = PREDICATE_DEFINITIONS.map((def) => {
+  const semantics = PREDICATE_SEMANTICS[def.id] ?? DEFAULT_SEMANTICS;
+  return { ...def, group: semantics.group, priority: semantics.priority };
+});
 
 /**
  * Returns predicates compatible with the given subject type.

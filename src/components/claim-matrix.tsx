@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -13,7 +13,8 @@ import {
   getAllEntityMappings,
   type EntityMapping,
 } from '../data/semantic-rankings';
-import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
+import { ATOM_TYPES } from '../data/atom-types';
+import { getAtomColor } from '../lib/atom-colors';
 
 interface ClaimMatrixProps {
   /** Single subject type filter (home page use case) */
@@ -50,14 +51,14 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
 
   const groupedMappings = useMemo(() => {
     const groups: { label: string; mappings: EntityMapping[] }[] = [];
-    let currentGroup = '';
+    let current: { label: string; mappings: EntityMapping[] } | null = null;
 
     for (const mapping of allMappings) {
-      if (mapping.group !== currentGroup) {
-        currentGroup = mapping.group;
-        groups.push({ label: currentGroup, mappings: [] });
+      if (!current || current.label !== mapping.group) {
+        current = { label: mapping.group, mappings: [] };
+        groups.push(current);
       }
-      groups[groups.length - 1].mappings.push(mapping);
+      current.mappings.push(mapping);
     }
 
     return groups;
@@ -65,9 +66,8 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
 
   const handleRowClick = useCallback(
     (mapping: EntityMapping) => {
-      if (mapping.predicates.length === 1) {
-        onSelectClaim?.(mapping.subjectType, mapping.predicates[0].id, mapping.objectType);
-      }
+      const only = mapping.predicates.length === 1 ? mapping.predicates[0] : null;
+      if (only) onSelectClaim?.(mapping.subjectType, only.id, mapping.objectType);
     },
     [onSelectClaim]
   );
@@ -80,7 +80,7 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
   );
 
 
-  const definedTermColor = getDefinedTermColor();
+  const definedTermColor = getAtomColor('DefinedTerm');
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
@@ -171,14 +171,12 @@ function EntityRow({
   const objectAtom = ATOM_TYPES.find((t) => t.id === mapping.objectType);
   if (!subjectAtom || !objectAtom) return null;
 
-  const subjectColor = ATOM_CATEGORIES[subjectAtom.category as AtomCategory].color;
-  const objectColor = ATOM_CATEGORIES[objectAtom.category as AtomCategory].color;
+  const subjectColor = getAtomColor(mapping.subjectType);
+  const objectColor = getAtomColor(mapping.objectType);
 
   const predicateCount = mapping.predicates.length;
-  const isSingle = predicateCount === 1;
-  const predicateLabel = isSingle
-    ? mapping.predicates[0].label
-    : `${predicateCount} predicates`;
+  const onlyPredicate = predicateCount === 1 ? mapping.predicates[0] : null;
+  const predicateLabel = onlyPredicate?.label ?? `${predicateCount} predicates`;
 
   return (
     <button
@@ -192,9 +190,9 @@ function EntityRow({
         entityType={subjectAtom.category}
       />
 
-      {isSingle ? (
+      {onlyPredicate ? (
         <EntityPill
-          label={mapping.predicates[0].label}
+          label={onlyPredicate.label}
           color={definedTermColor}
           entityType="DefinedTerm"
         />
@@ -225,6 +223,13 @@ function PredicateDialogBody({
 }) {
   const subjectAtom = ATOM_TYPES.find((t) => t.id === mapping.subjectType);
   const objectAtom = ATOM_TYPES.find((t) => t.id === mapping.objectType);
+  const firstPredicateRef = useRef<HTMLButtonElement>(null);
+
+  // Move focus to the first predicate when the dialog opens so keyboard users
+  // aren't stranded on the close button (the @waveso/ui default).
+  useEffect(() => {
+    firstPredicateRef.current?.focus();
+  }, []);
 
   return (
     <>
@@ -236,14 +241,17 @@ function PredicateDialogBody({
           {mapping.predicates.length} available predicates
         </p>
       </DialogHeader>
-      <div className="space-y-1 py-2">
-        {mapping.predicates.map((p) => (
+      <div className="space-y-1 py-2" role="list">
+        {mapping.predicates.map((p, i) => (
           <DialogClose
             key={p.id}
             render={
               <button
+                ref={i === 0 ? firstPredicateRef : undefined}
                 onClick={() => onSelect(p.id)}
                 className="focus-ring flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-hover)]"
+                role="listitem"
+                aria-label={`${p.label}: ${p.description}`}
               />
             }
           >
@@ -321,10 +329,3 @@ function PredicateCountPill({
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────
-
-function getDefinedTermColor(): string {
-  const dt = ATOM_TYPES.find((t) => t.id === 'DefinedTerm');
-  if (!dt) return '#6b7280';
-  return ATOM_CATEGORIES[dt.category as AtomCategory]?.color ?? '#6b7280';
-}

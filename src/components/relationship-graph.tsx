@@ -1,11 +1,13 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import * as d3 from 'd3';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomCategory } from '../data/atom-types';
 import { PREDICATES } from '../data/predicates';
+import { useBodyScrollLock } from '../lib/use-body-scroll-lock';
+import { D3_RESET_DURATION_MS } from '../lib/timings';
 
 interface RelationshipGraphProps {
   highlightTypeId: string | null;
-  onSelectType?: (typeId: string) => void;
+  onSelectType?: (typeId: string | null) => void;
   searchQuery?: string;
 }
 
@@ -16,14 +18,40 @@ interface GraphNode extends d3.SimulationNodeDatum {
   color: string;
 }
 
-interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
-  source: string | GraphNode;
-  target: string | GraphNode;
+/**
+ * Raw link shape fed to the simulation (IDs only). D3 mutates these in place,
+ * replacing `source`/`target` strings with the resolved node references — see
+ * {@link GraphLinkLive}. Keeping the two shapes apart kills the type guards
+ * that otherwise proliferate after the first tick.
+ */
+interface GraphLinkRaw extends d3.SimulationLinkDatum<GraphNode> {
+  source: string;
+  target: string;
   predicateCount: number;
 }
 
+/** Link shape after D3 has resolved `source`/`target` against the nodes array. */
+interface GraphLinkLive extends d3.SimulationLinkDatum<GraphNode> {
+  source: GraphNode;
+  target: GraphNode;
+  predicateCount: number;
+}
+
+const isLive = (l: d3.SimulationLinkDatum<GraphNode>): l is GraphLinkLive =>
+  typeof l.source === 'object' && typeof l.target === 'object';
+
+/** Read an endpoint ID regardless of resolution state. */
+const endpointId = (
+  endpoint: string | GraphNode | number | undefined
+): string | null => {
+  if (endpoint == null) return null;
+  if (typeof endpoint === 'object') return (endpoint as GraphNode).id;
+  if (typeof endpoint === 'string') return endpoint;
+  return null;
+};
+
 /** Build graph data from atom types and predicates */
-function buildGraph(): { nodes: GraphNode[]; links: GraphLink[] } {
+function buildGraph(): { nodes: GraphNode[]; links: GraphLinkRaw[] } {
   const nodeMap = new Map<string, GraphNode>();
   for (const atomType of ATOM_TYPES) {
     nodeMap.set(atomType.id, {
@@ -47,9 +75,10 @@ function buildGraph(): { nodes: GraphNode[]; links: GraphLink[] } {
     }
   }
 
-  const links: GraphLink[] = [];
+  const links: GraphLinkRaw[] = [];
   for (const [key, count] of linkMap) {
     const [source, target] = key.split('→');
+    if (!source || !target) continue;
     links.push({ source, target, predicateCount: count });
   }
 
@@ -64,6 +93,9 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
   const [hasInteracted, setHasInteracted] = useState(false);
   const prevHighlightRef = useRef(highlightTypeId);
 
+  // Build graph data once — derived purely from module-level constants
+  const { nodes: graphNodes, links: graphLinks } = useMemo(() => buildGraph(), []);
+
   // Auto-reset when selection is cleared externally (e.g., Entity Hierarchy Reset)
   useEffect(() => {
     if (prevHighlightRef.current && !highlightTypeId) {
@@ -71,7 +103,7 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
       if (svgRef.current && zoomRef.current) {
         d3.select(svgRef.current)
           .transition()
-          .duration(400)
+          .duration(D3_RESET_DURATION_MS)
           .call(zoomRef.current.transform, d3.zoomIdentity);
       }
     }
@@ -80,9 +112,7 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
 
   // Refs for D3 selections — avoid full rebuild on highlight/search changes
   const nodeSelRef = useRef<d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown> | null>(null);
-  const linkSelRef = useRef<d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null>(null);
-  const graphDataRef = useRef<{ nodes: GraphNode[]; links: GraphLink[] }>({ nodes: [], links: [] });
-  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  const linkSelRef = useRef<d3.Selection<SVGLineElement, GraphLinkRaw, SVGGElement, unknown> | null>(null);
 
   // Stable callback refs so D3 event handlers don't go stale
   const onSelectTypeRef = useRef(onSelectType);
@@ -98,10 +128,10 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     if (svgRef.current && zoomRef.current) {
       d3.select(svgRef.current)
         .transition()
-        .duration(400)
+        .duration(D3_RESET_DURATION_MS)
         .call(zoomRef.current.transform, d3.zoomIdentity);
     }
-    onSelectTypeRef.current?.(null as unknown as string);
+    onSelectTypeRef.current?.(null);
     setHasInteracted(false);
   }, []);
 
@@ -115,18 +145,12 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     return () => window.removeEventListener('keydown', handleKey);
   }, [isFullscreen]);
 
-  // Lock body scroll when fullscreen
-  useEffect(() => {
-    if (isFullscreen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [isFullscreen]);
+  useBodyScrollLock(isFullscreen);
 
-  // Build simulation — once on mount only
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Build simulation once per mount. Intentionally empty deps: highlight and
+  // search updates are handled by the lightweight effect below, and runtime
+  // callbacks are read through refs. Graph data is stable-identity from the
+  // module-level useMemo so including it wouldn't change behavior.
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return;
 
@@ -171,23 +195,21 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     svg.call(zoom);
     zoomRef.current = zoom;
 
-    const graphData = buildGraph();
-    graphDataRef.current = graphData;
-    const { nodes, links } = graphData;
+    const nodes = graphNodes;
+    const links = graphLinks;
 
     // Force simulation
     const simulation = d3
       .forceSimulation<GraphNode>(nodes)
-      .force('link', d3.forceLink<GraphNode, GraphLink>(links).id((d) => d.id).distance(120))
+      .force('link', d3.forceLink<GraphNode, GraphLinkRaw>(links).id((d) => d.id).distance(120))
       .force('charge', d3.forceManyBody().strength(-300))
       .force('center', d3.forceCenter(0, 0))
       .force('collide', d3.forceCollide(30));
-    simulationRef.current = simulation;
 
     // Links
     const link = g
       .append('g')
-      .selectAll<SVGLineElement, GraphLink>('line')
+      .selectAll<SVGLineElement, GraphLinkRaw>('line')
       .data(links)
       .join('line')
       .attr('stroke', 'var(--color-border)')
@@ -249,18 +271,19 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
 
         const connectedIds = new Set<string>();
         connectedIds.add(d.id);
-        links.forEach((l) => {
-          const srcId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
-          const tgtId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
+        for (const l of links) {
+          const srcId = endpointId(l.source);
+          const tgtId = endpointId(l.target);
+          if (!srcId || !tgtId) continue;
           if (srcId === d.id) connectedIds.add(tgtId);
           if (tgtId === d.id) connectedIds.add(srcId);
-        });
+        }
 
         node.select('circle').attr('opacity', (n) => connectedIds.has(n.id) ? 1 : 0.15);
         node.select('text').attr('opacity', (n) => connectedIds.has(n.id) ? 1 : 0.15);
         link.attr('stroke-opacity', (l) => {
-          const srcId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
-          const tgtId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
+          const srcId = endpointId(l.source);
+          const tgtId = endpointId(l.target);
           return srcId === d.id || tgtId === d.id ? 0.8 : 0.05;
         });
       })
@@ -276,13 +299,13 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
         onSelectTypeRef.current?.(d.id);
       });
 
-    // Tick
+    // Tick — at this point D3 has resolved source/target into node objects
     simulation.on('tick', () => {
       link
-        .attr('x1', (d) => (d.source as GraphNode).x ?? 0)
-        .attr('y1', (d) => (d.source as GraphNode).y ?? 0)
-        .attr('x2', (d) => (d.target as GraphNode).x ?? 0)
-        .attr('y2', (d) => (d.target as GraphNode).y ?? 0);
+        .attr('x1', (d) => (isLive(d) ? d.source.x ?? 0 : 0))
+        .attr('y1', (d) => (isLive(d) ? d.source.y ?? 0 : 0))
+        .attr('x2', (d) => (isLive(d) ? d.target.x ?? 0 : 0))
+        .attr('y2', (d) => (isLive(d) ? d.target.y ?? 0 : 0));
 
       node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
@@ -290,6 +313,7 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     return () => {
       simulation.stop();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -306,13 +330,39 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
       .attr('viewBox', `${-width / 2 + offsetX} ${-height / 2 + offsetY} ${width} ${height}`);
   }, [isFullscreen]);
 
+  // Visible-node count for the aria-live status region. Derived from the same
+  // filtering rules as the highlighting effect so screen readers match what's
+  // rendered.
+  const visibleCount = useMemo(() => {
+    const sq = (searchQuery ?? '').trim().toLowerCase();
+
+    if (highlightTypeId) {
+      const connected = new Set<string>([highlightTypeId]);
+      for (const l of graphLinks) {
+        const srcId = endpointId(l.source);
+        const tgtId = endpointId(l.target);
+        if (!srcId || !tgtId) continue;
+        if (srcId === highlightTypeId) connected.add(tgtId);
+        if (tgtId === highlightTypeId) connected.add(srcId);
+      }
+      return connected.size;
+    }
+
+    if (sq) {
+      return graphNodes.filter(
+        (n) => n.label.toLowerCase().includes(sq) || n.id.toLowerCase().includes(sq)
+      ).length;
+    }
+
+    return graphNodes.length;
+  }, [highlightTypeId, searchQuery, graphNodes, graphLinks]);
+
   // Update visual highlighting without rebuilding the simulation
   useEffect(() => {
     const node = nodeSelRef.current;
     const link = linkSelRef.current;
     if (!node || !link) return;
 
-    const { nodes, links } = graphDataRef.current;
     const sq = (searchQuery ?? '').trim().toLowerCase();
     const isSearchMatch = (d: GraphNode) =>
       !sq || d.label.toLowerCase().includes(sq) || d.id.toLowerCase().includes(sq);
@@ -321,12 +371,13 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     const connectedIds = new Set<string>();
     if (highlightTypeId) {
       connectedIds.add(highlightTypeId);
-      links.forEach((l) => {
-        const srcId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
-        const tgtId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
+      for (const l of graphLinks) {
+        const srcId = endpointId(l.source);
+        const tgtId = endpointId(l.target);
+        if (!srcId || !tgtId) continue;
         if (srcId === highlightTypeId) connectedIds.add(tgtId);
         if (tgtId === highlightTypeId) connectedIds.add(srcId);
-      });
+      }
     }
 
     const isConnected = (id: string) => !highlightTypeId || connectedIds.has(id);
@@ -352,8 +403,8 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     if (highlightTypeId) {
       link
         .style('display', (l) => {
-          const srcId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
-          const tgtId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
+          const srcId = endpointId(l.source);
+          const tgtId = endpointId(l.target);
           return srcId === highlightTypeId || tgtId === highlightTypeId ? null : 'none';
         })
         .attr('stroke-opacity', 0.6);
@@ -361,16 +412,23 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
       link
         .style('display', null)
         .attr('stroke-opacity', (l) => {
-          const srcId = typeof l.source === 'object' ? (l.source as GraphNode).id : l.source;
-          const tgtId = typeof l.target === 'object' ? (l.target as GraphNode).id : l.target;
-          const srcNode = nodes.find((n) => n.id === srcId);
-          const tgtNode = nodes.find((n) => n.id === tgtId);
+          const srcId = endpointId(l.source);
+          const tgtId = endpointId(l.target);
+          const srcNode = graphNodes.find((n) => n.id === srcId);
+          const tgtNode = graphNodes.find((n) => n.id === tgtId);
           return (srcNode && isSearchMatch(srcNode)) || (tgtNode && isSearchMatch(tgtNode)) ? 0.6 : 0.05;
         });
     } else {
       link.style('display', null).attr('stroke-opacity', 0.6);
     }
-  }, [highlightTypeId, searchQuery]);
+  }, [highlightTypeId, searchQuery, graphNodes, graphLinks]);
+
+  const sq = (searchQuery ?? '').trim();
+  const statusMessage = highlightTypeId
+    ? `Showing ${visibleCount} connected ${visibleCount === 1 ? 'type' : 'types'} for ${highlightTypeId}`
+    : sq
+      ? `${visibleCount} ${visibleCount === 1 ? 'match' : 'matches'} for "${sq}"`
+      : `Showing all ${visibleCount} entity types`;
 
   return (
     <div className={isFullscreen ? 'fixed inset-0 z-50 bg-[var(--color-bg)] p-6 overflow-auto' : ''}>
@@ -408,6 +466,11 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
         <div ref={containerRef} className="w-full flex-1 min-h-0">
           <svg ref={svgRef} className="w-full h-full" style={{ cursor: 'grab' }} role="img" aria-label="Entity relationship graph visualization" />
         </div>
+
+        {/* Live region for screen readers — announces visible-count changes */}
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {statusMessage}
+        </div>
       </div>
     </div>
   );
@@ -425,4 +488,3 @@ function FullscreenIcon() {
     </svg>
   );
 }
-

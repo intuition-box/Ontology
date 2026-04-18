@@ -1,35 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Routes, Route, NavLink, useNavigate, useLocation } from 'react-router-dom';
 
-import { type ClaimBuilderHandle } from './components/claim-builder';
-import { addToHistory } from './components/claim-history';
 import { GlobalSearchInput } from './components/global-search-input';
 import { TutorialOverlay, useTutorial } from './components/tutorial-overlay';
 import { useLocalStorage } from './lib/use-local-storage';
 import { useDebounce } from './lib/use-debounce';
 import { useKeyboardShortcuts } from './lib/use-keyboard-shortcuts';
 import { parseClaimsFromHash } from './lib/claim-export';
+import { ClaimWorkspaceProvider } from './lib/claim-workspace';
+import { useClaimWorkspace } from './lib/use-claim-workspace';
+import { ThemeSchema } from './lib/schemas';
+import { GLOBAL_SEARCH_DEBOUNCE_MS, TUTORIAL_ROUTE_SETTLE_MS } from './lib/timings';
 import { HomePage } from './pages/home';
 import { EntityMatrixPage } from './pages/entity-matrix';
-import type { Theme, ClaimEntry } from './types';
+import type { Theme } from './types';
 
 function getSystemTheme(): Theme {
   if (typeof window === 'undefined') return 'dark';
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
+function isTheme(value: unknown): value is Theme {
+  return ThemeSchema.safeParse(value).success;
+}
+
 export default function App() {
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
-  const [selectedPredicateId, setSelectedPredicateId] = useState<string | null>(null);
-  const claimBuilderRef = useRef<ClaimBuilderHandle>(null);
-  const [theme, setTheme] = useLocalStorage<Theme>('ontology-theme', getSystemTheme());
-  const [history, setHistory] = useLocalStorage<ClaimEntry[]>('ontology-history', []);
-  const [batch, setBatch] = useState<ClaimEntry[]>([]);
+  const [theme, setTheme] = useLocalStorage<Theme>('ontology-theme', getSystemTheme(), {
+    validate: isTheme,
+  });
   const tutorial = useTutorial();
   const navigate = useNavigate();
   const location = useLocation();
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(globalSearchQuery, 200);
+  const debouncedSearchQuery = useDebounce(globalSearchQuery, GLOBAL_SEARCH_DEBOUNCE_MS);
   const globalSearchRef = useRef<HTMLInputElement>(null);
 
   // Apply theme to document root
@@ -37,50 +40,15 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // Restore batch from URL hash on mount
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash) return;
-
-    const claims = parseClaimsFromHash(hash);
-    if (claims && claims.length > 0) {
-      setBatch(claims);
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-  }, []);
-
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, [setTheme]);
-
-  const handleMatrixSelect = useCallback((subjectTypeId: string, predicateId: string, objectTypeId: string) => {
-    claimBuilderRef.current?.fillFromMatrix(subjectTypeId, predicateId, objectTypeId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
-  const handleSave = useCallback((claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => {
-    setHistory((prev) => addToHistory(prev, claim));
-  }, [setHistory]);
-
-  const handleAddToBatch = useCallback((claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => {
-    const entry: ClaimEntry = {
-      ...claim,
-      id: `batch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      timestamp: Date.now(),
-    };
-    setBatch((prev) => [...prev, entry]);
-  }, []);
-
-  const handleRestore = useCallback((entry: ClaimEntry) => {
-    claimBuilderRef.current?.restoreClaim(entry);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
 
   const openTutorial = useCallback(() => {
     if (location.pathname !== '/') {
       navigate('/');
       // Wait for navigation to settle before opening
-      setTimeout(() => tutorial.open(), 100);
+      setTimeout(() => tutorial.open(), TUTORIAL_ROUTE_SETTLE_MS);
     } else {
       tutorial.open();
     }
@@ -111,37 +79,38 @@ export default function App() {
     }`;
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] pb-10">
-      <TutorialOverlay isOpen={tutorial.isOpen} onClose={tutorial.close} />
+    <ClaimWorkspaceProvider searchQuery={debouncedSearchQuery}>
+      <div className="min-h-screen bg-[var(--color-bg)] pb-10">
+        <TutorialOverlay isOpen={tutorial.isOpen} onClose={tutorial.close} />
 
-      <header className="px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Logo */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent)]">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <circle cx="12" cy="12" r="4" />
-                <line x1="12" y1="2" x2="12" y2="6" />
-                <line x1="12" y1="18" x2="12" y2="22" />
-                <line x1="2" y1="12" x2="6" y2="12" />
-                <line x1="18" y1="12" x2="22" y2="12" />
-              </svg>
-            </div>
+        <header className="px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Logo */}
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-accent)]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="4" />
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
+                </svg>
+              </div>
 
-            {/* Navigation */}
-            <nav className="flex items-center gap-1" aria-label="Main navigation">
+              {/* Navigation */}
+              <nav className="flex items-center gap-1" aria-label="Main navigation">
                 <NavLink to="/" end className={navLinkClass}>
                   Explorer
                 </NavLink>
                 <NavLink to="/matrix" className={navLinkClass} data-tutorial-step="entity-matrix-link">
                   Matrix
                 </NavLink>
-            </nav>
-          </div>
+              </nav>
+            </div>
 
-          {/* Global search */}
-          <div className="hidden sm:flex flex-1 max-w-sm">
+            {/* Global search */}
+            <div className="hidden sm:flex flex-1 max-w-sm">
               <GlobalSearchInput
                 value={globalSearchQuery}
                 onChange={setGlobalSearchQuery}
@@ -165,44 +134,48 @@ export default function App() {
               >
                 {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
               </button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <HomePage
-              selectedTypeId={selectedTypeId}
-              onSelectedTypeIdChange={setSelectedTypeId}
-              selectedPredicateId={selectedPredicateId}
-              onPredicateChange={setSelectedPredicateId}
-              claimBuilderRef={claimBuilderRef}
-              searchQuery={debouncedSearchQuery}
-              history={history}
-              onHistoryChange={setHistory}
-              batch={batch}
-              onBatchChange={setBatch}
-              onSave={handleSave}
-              onAddToBatch={handleAddToBatch}
-              onRestore={handleRestore}
-              onMatrixSelect={handleMatrixSelect}
-            />
-          }
-        />
-        <Route
-          path="/matrix"
-          element={
-            <EntityMatrixPage
-              onSelectClaim={handleMatrixSelect}
-            />
-          }
-        />
-      </Routes>
+        <SharedBatchFromHash />
 
-    </div>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/matrix" element={<EntityMatrixPage />} />
+        </Routes>
+      </div>
+    </ClaimWorkspaceProvider>
   );
+}
+
+/**
+ * Reads `#claims=...` from the URL and imports the batch.
+ *
+ * Listens for `hashchange` so pasting a shared link while the app is already
+ * open works (the original mount-only effect required a full reload).
+ */
+function SharedBatchFromHash() {
+  const { setBatch } = useClaimWorkspace();
+
+  useEffect(() => {
+    const importFromCurrentHash = () => {
+      const hash = window.location.hash;
+      if (!hash) return;
+
+      const claims = parseClaimsFromHash(hash);
+      if (claims && claims.length > 0) {
+        setBatch(claims);
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+
+    importFromCurrentHash();
+    window.addEventListener('hashchange', importFromCurrentHash);
+    return () => window.removeEventListener('hashchange', importFromCurrentHash);
+  }, [setBatch]);
+
+  return null;
 }
 
 // ─── Theme Icons ──────────────────────────────────────────

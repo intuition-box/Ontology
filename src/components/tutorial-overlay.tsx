@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalStorage } from '../lib/use-local-storage';
+import { TUTORIAL_AUTOSHOW_DELAY_MS, TUTORIAL_SCROLL_SETTLE_MS } from '../lib/timings';
 
 interface TutorialStep {
   targetSelector: string;
@@ -61,11 +62,11 @@ export function TutorialOverlay({ isOpen, onClose }: TutorialOverlayProps) {
     // Scroll target into view
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-    // Wait for scroll to finish
+    // Wait for smooth scroll to settle before measuring the target rect.
     const timeout = setTimeout(() => {
       const rect = target.getBoundingClientRect();
       setTargetRect(rect);
-    }, 400);
+    }, TUTORIAL_SCROLL_SETTLE_MS);
 
     return () => clearTimeout(timeout);
   }, [isOpen, currentStep, step]);
@@ -217,7 +218,7 @@ export function useTutorial() {
   // Auto-show on first visit
   useEffect(() => {
     if (!seen) {
-      const timeout = setTimeout(() => setIsOpen(true), 800);
+      const timeout = setTimeout(() => setIsOpen(true), TUTORIAL_AUTOSHOW_DELAY_MS);
       return () => clearTimeout(timeout);
     }
   }, [seen]);

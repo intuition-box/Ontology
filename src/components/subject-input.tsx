@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { classifySubject, type ClassificationResult } from '../lib/subject-classifier';
+import { useDebounce } from '../lib/use-debounce';
+import { SUBJECT_CLASSIFY_DEBOUNCE_MS } from '../lib/timings';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomType, type AtomCategory } from '../data/atom-types';
 import { EXAMPLE_CLAIMS, type ExampleClaim } from '../data/example-claims';
 import { TypeBadge } from './type-badge';
@@ -26,8 +28,13 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showAllTypes, setShowAllTypes] = useState(false);
 
-  const classify = useCallback((input: string) => {
-    const result = classifySubject(input);
+  // Debounce typing before classifying so we don't thrash the picker state
+  // on every keystroke. Uses the shared debounce hook for consistency with
+  // the global search field.
+  const debouncedValue = useDebounce(value, SUBJECT_CLASSIFY_DEBOUNCE_MS);
+
+  useEffect(() => {
+    const result = classifySubject(debouncedValue);
     setClassification(result);
 
     if (result.detectedType && result.confidence === 'high') {
@@ -37,19 +44,14 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
     } else if (result.detectedType && result.confidence === 'medium') {
       onTypeChange(result.detectedType);
       setShowTypePicker(true);
-    } else if (input.trim()) {
+    } else if (debouncedValue.trim()) {
       setShowTypePicker(true);
     } else {
       onTypeChange(null);
       setShowTypePicker(false);
       setShowAllTypes(false);
     }
-  }, [onTypeChange]);
-
-  useEffect(() => {
-    const timeout = setTimeout(() => classify(value), 200);
-    return () => clearTimeout(timeout);
-  }, [value, classify]);
+  }, [debouncedValue, onTypeChange]);
 
   const handleTypeSelect = (typeId: string) => {
     onTypeChange(typeId);

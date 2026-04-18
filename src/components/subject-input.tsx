@@ -3,7 +3,6 @@ import { classifySubject, type ClassificationResult } from '../lib/subject-class
 import { conjugateForSelf, isSelfSubject } from '../lib/conjugate';
 import { SUBJECT_CLASSIFY_DEBOUNCE_MS } from '../lib/timings';
 import { useDebounce } from '../lib/use-debounce';
-import { useLocalStorage } from '../lib/use-local-storage';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomType, type AtomCategory } from '../data/atom-types';
 import { EXAMPLE_CLAIMS, type ExampleClaim } from '../data/example-claims';
 import { TypeBadge } from './type-badge';
@@ -29,9 +28,6 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
   });
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showAllTypes, setShowAllTypes] = useState(false);
-  // First-run explainer for the Self atom — shown the first time a user selects
-  // it, suppressed afterwards so it doesn't become noise.
-  const [selfIntroSeen, setSelfIntroSeen] = useLocalStorage('ontology-self-intro-seen', false);
   const isSelf = isSelfSubject(selectedType);
 
   // Debounce typing before classifying so we don't thrash the picker state
@@ -98,12 +94,7 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
         <p id="subject-warning" className="text-xs text-amber-400" role="alert">{classification.warning}</p>
       )}
 
-      {isSelf && (
-        <SelfAtomNote
-          expanded={!selfIntroSeen}
-          onDismiss={() => setSelfIntroSeen(true)}
-        />
-      )}
+      {isSelf && <SelfAtomNote />}
 
       {showTypePicker && value.trim() && !showAllTypes && (
         <div className="flex flex-wrap gap-1.5">
@@ -171,24 +162,13 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
 }
 
 /**
- * Informational badge shown when the `Self` atom is selected. Expanded on
- * first encounter so the user understands why `I` is a deliberate choice
- * (shared, aggregatable claims) rather than a grammatical mistake.
- * Collapses to a compact chip on subsequent visits after dismiss.
+ * Explainer shown whenever the `Self` atom is the active subject. Always
+ * visible — the aggregation semantics are central enough to the `Self`
+ * choice that the reminder stays on-screen for as long as the user is
+ * building a Self-subject claim.
  */
-function SelfAtomNote({ expanded, onDismiss }: { expanded: boolean; onDismiss: () => void }) {
+function SelfAtomNote() {
   const accent = ATOM_CATEGORIES.self.color;
-
-  if (!expanded) {
-    return (
-      <p
-        className="text-xs text-[var(--color-text-muted)]"
-        style={{ color: `color-mix(in srgb, ${accent} 70%, var(--color-text-muted))` }}
-      >
-        Using <strong>Self</strong> — this claim aggregates across every staker.
-      </p>
-    );
-  }
 
   return (
     <div
@@ -206,19 +186,9 @@ function SelfAtomNote({ expanded, onDismiss }: { expanded: boolean; onDismiss: (
       </p>
       <p className="leading-relaxed">
         Anyone who stakes will resolve <code>I</code> to themselves, so multiple people
-        staking <em>“I follow Intuition</em> is one claim with multiple signals — not
-        various claims. Prefer <code>Self</code> for statements about
-        yourself.
+        staking <em>“I follow Intuition”</em> is one claim with multiple signals — not
+        various claims. Prefer <code>Self</code> for statements about yourself.
       </p>
-      <div className="mt-2 flex justify-end">
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="focus-ring rounded px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-hover)] transition-colors"
-        >
-          Got it
-        </button>
-      </div>
     </div>
   );
 }

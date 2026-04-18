@@ -34,6 +34,13 @@ export interface AtomType {
   onchainFields: SchemaField[];
   /** Offchain enrichment fields — attached via artifacts */
   enrichmentFields: SchemaField[];
+  /**
+   * For deictic atoms (no schema of their own, e.g. `Self`): which atom type
+   * IDs this one resolves to at stake time. The schema panel renders these
+   * target types' fields as a secondary "typical resolution" section so users
+   * can see what the deictic reference ultimately points to.
+   */
+  resolvesToTypeIds?: string[];
 }
 
 export const ATOM_CATEGORIES: Record<AtomCategory, { label: string; color: string }> = {
@@ -72,6 +79,10 @@ export const ATOM_TYPES: AtomType[] = [
       'First-person subject. Anyone who stakes on a claim with `Self` asserts it about themselves — the claim aggregates across stakers rather than forking into parallel per-identity copies.',
     onchainFields: [],
     enrichmentFields: [],
+    // At stake time, `Self` resolves to the staker — typically a Person.
+    // The schema panel surfaces the Person fields as the "typical resolution"
+    // so users see what identity data ultimately backs the claim.
+    resolvesToTypeIds: ['Person'],
   },
 
   // ─── Identity ──────────────────────────────────────────────

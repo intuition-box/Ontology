@@ -389,20 +389,12 @@ export const GLOSSARY_ATOMS: GlossaryAtom[] = [
 
   // ─── Comparison ────────────────────────────────────────────
   {
-    address: '0xb913c21eb40d763c2bd7add9e867dba0940ba3e7c455a5c87de0f9e116580554',
-    label: 'Is better than',
-    kind: 'predicate',
-    form: 'phrase',
-    conceptGroup: 'better-than',
-    description: 'Subject is preferred over object on some axis. Capitalized variant.',
-  },
-  {
     address: '0xf44a7305513ada5e0cf0c6010ef12fff8def5cf28335ce6b8191e2eccccf393b',
     label: 'is better than',
     kind: 'predicate',
     form: 'phrase',
     conceptGroup: 'better-than',
-    description: 'Subject is preferred over object on some axis. Lowercase variant.',
+    description: 'Subject is preferred over object on some axis.',
   },
 
   // ─── Temporal / future ─────────────────────────────────────

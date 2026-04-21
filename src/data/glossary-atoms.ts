@@ -406,5 +406,49 @@ export const GLOSSARY_ATOMS: GlossaryAtom[] = [
     conceptGroup: 'future-have',
     description: 'Subject will come to have object (promissory / future-tense relation).',
   },
+
+// ─── Prediction & resolution ───────────────────────────────
+
+  {
+    address: '0x2c76a5344a15f60565878c8657463f0e2fb201eb05158cf41ad77f8b9d084be1',
+    label: 'resolved to',
+    kind: 'predicate',
+    form: 'phrase',
+    conceptGroup: 'resolve',
+    description: 'Records the definitive outcome of a resolved claim, question, or prediction. Usage: [Subject] — resolved to — [Object], where Object is typically `true`, `false`, or another canonical outcome atom. Consumers should filter triples by trusted publisher address to avoid noise or exploitation — anyone can write a resolved to triple, only authoritative publishers should be trusted.',
+  },
+  {
+    address: '0xa1fadfcf5e29bd37e048625f1deee9a6374b249fcda4905649a85022c74070ec',
+    label: 'related to',
+    kind: 'predicate',
+    form: 'phrase',
+    conceptGroup: 'related',
+    description: 'Expresses that subject has a thematic or contextual relationship with object. A weak, neutral association — weaker than `supports`, `contradicts`, or `conditions`. Use for loose correlations where outcomes or concepts are connected but neither strictly depends on the other.',
+  },
+  {
+    address: '0x3317b232b1d59ae421283a4ce4d8bef0f739574c3a53386d5d8597d4b272d4e8',
+    label: 'belongs to',
+    kind: 'predicate',
+    form: 'phrase',
+    conceptGroup: 'belong',
+    description: 'Expresses that subject belongs to object — a category, collection, topic, group, or class. Standard classification predicate. Examples: [Document] — belongs to — [Folder], [Prediction] — belongs to — [Topic], [User] — belongs to — [Organization].',
+  },
+
+  // ─── Boolean primitives ────────────────────────────────────
+
+  {
+    address: '0x4f2874d4ad8b146c86ac84188e86635a794ddbfa4cfc40670a70467e08db36a2',
+    label: 'true',
+    kind: 'entity',
+    conceptGroup: 'boolean',
+    description: 'Canonical boolean true value. Used as the object in assertion, resolution, or outcome triples to mark a claim as confirmed, valid, or positively resolved. Pairs with `false` for binary outcomes. Neutral primitive — any protocol can reference it.',
+  },
+  {
+    address: '0xa8cc267d1c74e7cd83cc8706fc1eb8d732bc5fa3bc4c8f37b2b992a819b9b550',
+    label: 'false',
+    kind: 'entity',
+    conceptGroup: 'boolean',
+    description: 'Canonical boolean false value. Used as the object in assertion, resolution, or outcome triples to mark a claim as rejected, invalid, or negatively resolved. Pairs with `true` for binary outcomes. Neutral primitive — any protocol can reference it.',
+  },
 ];
 /* eslint-enable @stylistic/max-len */

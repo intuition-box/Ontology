@@ -17,8 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
-# Claude Code local settings (project settings.json is shared, settings.local.json is personal)
-.claude/settings.local.json
+# Claude Code (personal tooling, not part of the bounty PR)
+.claude/
+CLAUDE.md
 
 # Editor directories and files
 .vscode/*

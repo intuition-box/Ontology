@@ -31,6 +31,19 @@ export interface TripleRecord {
   object_id: Bytes32;
 }
 
+/**
+ * A triple row with the three atoms joined inline. Used by the live
+ * data views (graph, matrix) so a single GraphQL round-trip yields
+ * everything needed to render an edge with labeled endpoints.
+ */
+export interface JoinedTripleRecord extends TripleRecord {
+  created_at: string;
+  creator_id: string;
+  subject: AtomRecord;
+  predicate: AtomRecord;
+  object: AtomRecord;
+}
+
 /** Atom row enriched with the count of triples in which it acts as predicate. */
 export interface PredicateAtomCandidate extends AtomRecord {
   as_predicate_triples_aggregate: {
@@ -80,6 +93,48 @@ const LIST_TRIPLES_BY_PREDICATE = gql`
   }
 `;
 
+const LIST_ATOMS = gql`
+  query ListAtoms($limit: Int!, $offset: Int!) {
+    atoms(limit: $limit, offset: $offset, order_by: { created_at: desc }) {
+      term_id
+      label
+      type
+    }
+  }
+`;
+
+const LIST_RECENT_TRIPLES = gql`
+  query ListRecentTriples($limit: Int!, $offset: Int!) {
+    triples(
+      limit: $limit
+      offset: $offset
+      order_by: { block_number: desc }
+    ) {
+      term_id
+      subject_id
+      predicate_id
+      object_id
+      created_at
+      creator_id
+      subject {
+        term_id
+        label
+        type
+      }
+      predicate {
+        term_id
+        label
+        type
+      }
+      object {
+        term_id
+        label
+        type
+      }
+    }
+  }
+`;
+
 interface FindPredicateAtomsByLabelResponse {
   atoms: PredicateAtomCandidate[];
 }
@@ -88,6 +143,12 @@ interface GetAtomByTermIdResponse {
 }
 interface ListTriplesByPredicateResponse {
   triples: TripleRecord[];
+}
+interface ListAtomsResponse {
+  atoms: AtomRecord[];
+}
+interface ListRecentTriplesResponse {
+  triples: JoinedTripleRecord[];
 }
 
 export class IndexerService {
@@ -142,6 +203,36 @@ export class IndexerService {
     const data = await this.client.request<ListTriplesByPredicateResponse>(
       LIST_TRIPLES_BY_PREDICATE,
       { predicateId, limit }
+    );
+    return data.triples;
+  }
+
+  /**
+   * Lists atoms most recently created on the indexer, paginated.
+   * Used by the tree and graph views to enrich the static seed data
+   * with live entities.
+   */
+  async listAtoms(
+    args: { limit: number; offset?: number } = { limit: 100 }
+  ): Promise<AtomRecord[]> {
+    const data = await this.client.request<ListAtomsResponse>(LIST_ATOMS, {
+      limit: args.limit,
+      offset: args.offset ?? 0,
+    });
+    return data.atoms;
+  }
+
+  /**
+   * Lists triples most recently created on the indexer with subject,
+   * predicate, and object atoms joined inline. One round-trip yields
+   * everything the graph and matrix views need to render labeled edges.
+   */
+  async listRecentTriples(
+    args: { limit: number; offset?: number } = { limit: 100 }
+  ): Promise<JoinedTripleRecord[]> {
+    const data = await this.client.request<ListRecentTriplesResponse>(
+      LIST_RECENT_TRIPLES,
+      { limit: args.limit, offset: args.offset ?? 0 }
     );
     return data.triples;
   }

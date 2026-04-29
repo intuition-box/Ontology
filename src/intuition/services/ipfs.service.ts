@@ -130,20 +130,40 @@ function assertIpfsUri(uri: string | null | undefined): IpfsUri {
   return uri as IpfsUri;
 }
 
+// The indexer's Hasura request-transformation template references every
+// pin-mutation field; omitting any optional field triggers a transformation
+// error at the gateway. Coerce undefineds to empty strings so the wire
+// payload always carries the full shape — same pattern as the canonical
+// sofia-core AtomService.
+
 /** Pin a Thing schema (generic concept atom). */
 export async function pinThing(input: ThingInput): Promise<IpfsUri> {
+  const variables = {
+    name: input.name,
+    description: input.description ?? '',
+    image: input.image ?? '',
+    url: input.url ?? '',
+  };
   const data = await getClient().request<PinThingResponse>(
     PIN_THING_MUTATION,
-    input
+    variables
   );
   return assertIpfsUri(data.pinThing?.uri);
 }
 
 /** Pin a Person schema. */
 export async function pinPerson(input: PersonInput): Promise<IpfsUri> {
+  const variables = {
+    name: input.name,
+    description: input.description ?? '',
+    image: input.image ?? '',
+    url: input.url ?? '',
+    email: input.email ?? '',
+    identifier: input.identifier ?? '',
+  };
   const data = await getClient().request<PinPersonResponse>(
     PIN_PERSON_MUTATION,
-    input
+    variables
   );
   return assertIpfsUri(data.pinPerson?.uri);
 }
@@ -152,9 +172,16 @@ export async function pinPerson(input: PersonInput): Promise<IpfsUri> {
 export async function pinOrganization(
   input: OrganizationInput
 ): Promise<IpfsUri> {
+  const variables = {
+    name: input.name,
+    description: input.description ?? '',
+    image: input.image ?? '',
+    url: input.url ?? '',
+    email: input.email ?? '',
+  };
   const data = await getClient().request<PinOrganizationResponse>(
     PIN_ORGANIZATION_MUTATION,
-    input
+    variables
   );
   return assertIpfsUri(data.pinOrganization?.uri);
 }

@@ -1,6 +1,7 @@
 import { type HTMLAttributes, type ReactNode, useEffect, useRef, useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useDisconnect } from 'wagmi';
+import { useBalance, useDisconnect } from 'wagmi';
+import { formatUnits } from 'viem';
 
 /**
  * Wallet UI for the Ontology header.
@@ -69,7 +70,11 @@ export function WalletButton() {
               </button>
             )}
             {connected && chain.unsupported !== true && (
-              <WalletDropdown account={account} chain={chain} />
+              <WalletDropdown
+                account={account}
+                chain={chain}
+                onOpenChainModal={openChainModal}
+              />
             )}
           </div>
         );
@@ -94,13 +99,39 @@ interface RKChain {
 /**
  * Inline dropdown surfacing wallet identity and quick actions.
  * Single round avatar trigger; click reveals wallet address + balance,
- * network, and copy / explorer / disconnect actions — keeps RainbowKit
- * modal density on the page without launching a full modal.
+ * network, and copy / switch network / explorer / disconnect actions —
+ * keeps RainbowKit modal density on the page without launching a full
+ * modal for the most common flows.
  */
-function WalletDropdown({ account, chain }: { account: RKAccount; chain: RKChain }) {
+function WalletDropdown({
+  account,
+  chain,
+  onOpenChainModal,
+}: {
+  account: RKAccount;
+  chain: RKChain;
+  onOpenChainModal: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { disconnect } = useDisconnect();
+  // Force the balance query to the connected chain. wagmi defaults to the
+  // active chain, but being explicit avoids edge cases where the wallet
+  // installed an older RPC for the same chain ID and our transport
+  // resolution diverges.
+  const { data: balance } = useBalance({
+    address: account.address as `0x${string}`,
+    chainId: chain.id,
+  });
+  const formattedBalance =
+    balance !== undefined
+      ? (() => {
+          const amount = parseFloat(formatUnits(balance.value, balance.decimals));
+          return Number.isFinite(amount)
+            ? `${amount.toFixed(4)} ${balance.symbol}`
+            : undefined;
+        })()
+      : undefined;
 
   // Close on outside click + Escape.
   useEffect(() => {
@@ -169,24 +200,39 @@ function WalletDropdown({ account, chain }: { account: RKAccount; chain: RKChain
               <span className="font-mono text-[var(--color-text)]">
                 {account.displayName}
               </span>
-              {account.displayBalance !== undefined && (
-                <span className="ml-auto text-[var(--color-text-muted)] text-xs">
-                  {account.displayBalance}
+              {formattedBalance !== undefined && (
+                <span className="ml-auto text-[var(--color-text-muted)] text-xs font-mono tabular-nums">
+                  {formattedBalance}
                 </span>
               )}
             </DetailRow>
-            <DetailRow label="Network">
-              <span
-                className="h-2 w-2 rounded-full bg-[var(--success)] shrink-0"
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="text-[var(--color-text)]">{chain.name ?? '—'}</div>
-                <div className="text-[11px] text-[var(--color-text-muted)]">
-                  Chain ID: {chain.id}
-                </div>
+            <button
+              type="button"
+              onClick={() => {
+                onOpenChainModal();
+                setOpen(false);
+              }}
+              className="group w-full text-left rounded-md -mx-2 px-2 py-1 hover:bg-[var(--color-surface-hover)] transition-colors"
+            >
+              <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-text-muted)] mb-1.5">
+                Network
               </div>
-            </DetailRow>
+              <div className="flex items-center gap-2 text-sm">
+                <span
+                  className="h-2 w-2 rounded-full bg-[var(--success)] shrink-0"
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[var(--color-text)]">
+                    {chain.name ?? '—'}
+                  </div>
+                  <div className="text-[11px] text-[var(--color-text-muted)]">
+                    Chain ID: {chain.id}
+                  </div>
+                </div>
+                <ChevronRightIcon />
+              </div>
+            </button>
           </div>
           <div className="border-t border-[var(--color-border)] py-1">
             <MenuItem
@@ -312,6 +358,25 @@ function WarningIcon() {
       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      className="text-[var(--color-text-muted)] group-hover:text-[var(--color-text)] transition-colors"
+    >
+      <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }

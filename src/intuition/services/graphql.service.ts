@@ -74,9 +74,9 @@ interface FindPredicateAtomsByLabelResponse {
  * Returns predicate-atom candidates matching the given label, ordered by
  * usage count (most-used first).
  *
- * Convention from the Intuition skill: the canonical predicate is the
- * first non-TextObject result. TextObject entries are legacy plain-string
- * atoms that should not be reused — pin a structured replacement instead.
+ * Raw access — callers should normally route through `pickCanonicalPredicate`
+ * to enforce the no-TextObject rule. This is exposed for cases that need
+ * the full candidate list (debug views, predicate analytics).
  */
 export async function findPredicateAtomsByLabel(
   label: string
@@ -86,6 +86,35 @@ export async function findPredicateAtomsByLabel(
     { label }
   );
   return data.atoms;
+}
+
+/**
+ * Picks the canonical (non-legacy) predicate atom from a candidate list.
+ *
+ * `TextObject` atoms are legacy plain-string predicates and must not be
+ * reused — per the Intuition skill, when only TextObject candidates exist
+ * the caller should pin a structured replacement (Thing / Person /
+ * Organization) and use the new atom going forward.
+ *
+ * Returns the first non-TextObject candidate, or `null` when no canonical
+ * predicate exists yet for the given label.
+ */
+export function pickCanonicalPredicate(
+  candidates: PredicateAtomCandidate[]
+): PredicateAtomCandidate | null {
+  return candidates.find((candidate) => candidate.type !== 'TextObject') ?? null;
+}
+
+/**
+ * Resolves the canonical predicate atom for a label in one call.
+ * Combines `findPredicateAtomsByLabel` with the `pickCanonicalPredicate`
+ * filter so consumer hooks cannot accidentally reuse a TextObject atom.
+ */
+export async function resolveCanonicalPredicateByLabel(
+  label: string
+): Promise<PredicateAtomCandidate | null> {
+  const candidates = await findPredicateAtomsByLabel(label);
+  return pickCanonicalPredicate(candidates);
 }
 
 const GET_ATOM_BY_TERM_ID = gql`

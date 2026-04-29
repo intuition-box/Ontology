@@ -13,52 +13,56 @@ import { createIntuitionServices } from '../services/factory';
 import type {
   ClaimSubmissionDraft,
   ClaimSubmissionPhase,
+  ClaimSubmissionResult,
 } from '../services/claim-submission.service';
-import type { TripleId } from '../types';
 import { useIntuitionSession } from './use-intuition-session';
 
 /**
- * Discriminated state for the on-chain claim submission flow.
+ * Discriminated state for the batched on-chain submission flow.
  *
- * The hook is pure orchestration: it maps service phases to UI state
- * and surfaces terminal states (`confirmed`, `error`). All business
- * logic lives in `ClaimSubmissionService`.
+ * Mirrors `useSubmitClaim`'s state machine with the same phase order
+ * — preparing → creating-atoms → creating-triple → confirmed/error —
+ * so consumers can share the rendering pattern. The `confirmed`
+ * variant carries the per-draft results; every entry shares the same
+ * pair of tx hashes since the whole batch is a 2-tx flow regardless
+ * of size.
  */
-export type SubmissionState =
+export type BatchSubmissionState =
   | { status: 'idle' }
   | { status: 'preparing' }
   | { status: 'creating-atoms'; atomCount: number }
   | { status: 'creating-triple' }
   | {
       status: 'confirmed';
-      tripleId: TripleId;
+      results: ClaimSubmissionResult[];
       atomTxHash: Hex | undefined;
       tripleTxHash: Hex;
     }
   | { status: 'error'; error: Error };
 
-export type ClaimDraft = ClaimSubmissionDraft;
-
-export interface UseSubmitClaimReturn {
-  submit: (draft: ClaimDraft) => Promise<void>;
+export interface UseSubmitBatchReturn {
+  submit: (drafts: ClaimSubmissionDraft[]) => Promise<void>;
   reset: () => void;
-  state: SubmissionState;
+  state: BatchSubmissionState;
   isReady: boolean;
 }
 
 /**
- * React binding around `ClaimSubmissionService`.
+ * React binding around `ClaimSubmissionService.submitBatch`.
  *
- * Responsibilities (and ONLY these):
- *  - Read connection state and protocol session from wagmi/TanStack.
- *  - Build the service tree once per (publicClient, walletClient) pair.
- *  - Forward `submit(draft)` to the service, mapping phase callbacks
- *    to the local discriminated state.
+ * Same shape as `useSubmitClaim` — read connection state from wagmi,
+ * memoize the service tree against the connected (publicClient,
+ * walletClient) pair, forward `submit(drafts)` to the service, and
+ * map service phase callbacks into local state.
  *
- * No contract calls, no GraphQL queries, no business decisions.
+ * The submission goes through in 2 transactions regardless of how
+ * many drafts the caller supplies: ONE `createAtoms` for every
+ * unique atom missing on-chain, ONE `createTriples` for every triple.
+ * Wallet popups are therefore bounded — the user signs twice for the
+ * whole batch.
  */
-export function useSubmitClaim(): UseSubmitClaimReturn {
-  const [state, setState] = useState<SubmissionState>({ status: 'idle' });
+export function useSubmitBatch(): UseSubmitBatchReturn {
+  const [state, setState] = useState<BatchSubmissionState>({ status: 'idle' });
   const { address, chain } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -89,7 +93,7 @@ export function useSubmitClaim(): UseSubmitClaimReturn {
   }, []);
 
   const submit = useCallback(
-    async (draft: ClaimDraft) => {
+    async (drafts: ClaimSubmissionDraft[]) => {
       if (
         services === null ||
         address === undefined ||
@@ -104,10 +108,13 @@ export function useSubmitClaim(): UseSubmitClaimReturn {
         });
         return;
       }
+      if (drafts.length === 0) return;
 
       try {
-        const result = await services.claimSubmission.submit({
-          draft,
+        let lastAtomTxHash: Hex | undefined;
+        let lastTripleTxHash: Hex | undefined;
+        const results = await services.claimSubmission.submitBatch({
+          drafts,
           context: {
             account: address,
             chain,
@@ -116,14 +123,26 @@ export function useSubmitClaim(): UseSubmitClaimReturn {
           },
           onPhase: (phase: ClaimSubmissionPhase) => setState(phase),
         });
+        // Every result in a batch shares the same tx hashes; pull them
+        // from the first entry for the confirmed state. (`atomTxHash`
+        // is `undefined` when no atom needed creation.)
+        if (results.length > 0) {
+          lastAtomTxHash = results[0]!.atomTxHash;
+          lastTripleTxHash = results[0]!.tripleTxHash;
+        }
+        if (lastTripleTxHash === undefined) {
+          // Should not happen; submitBatch always issues createTriples
+          // when drafts.length > 0. Defensive guard.
+          throw new Error('Batch submission produced no triple tx hash');
+        }
         setState({
           status: 'confirmed',
-          tripleId: result.tripleId,
-          atomTxHash: result.atomTxHash,
-          tripleTxHash: result.tripleTxHash,
+          results,
+          atomTxHash: lastAtomTxHash,
+          tripleTxHash: lastTripleTxHash,
         });
-        // Refresh every live query (atoms, triples, positions...) so
-        // the graph and tree views pick up the freshly-published claim
+        // Refresh every live query (atoms, triples, positions...) so the
+        // graph and tree views pick up the freshly-published claims
         // without waiting for the default staleTime to expire.
         void queryClient.invalidateQueries({ queryKey: ['intuition'] });
       } catch (error) {

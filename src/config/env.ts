@@ -22,6 +22,9 @@ const EnvSchema = z.object({
     .regex(HEX_ADDRESS_REGEX, 'must be a 0x-prefixed 40-char hex address')
     // boundary: zod-validated string narrowed to the 0x-prefixed template type
     .transform((value) => value as `0x${string}`),
+  VITE_WALLETCONNECT_PROJECT_ID: z
+    .string()
+    .min(1, 'register a free project ID at https://cloud.walletconnect.com'),
 });
 
 const parsed = EnvSchema.safeParse(import.meta.env);
@@ -45,6 +48,7 @@ export const env = {
   rpcUrl: parsed.data.VITE_RPC_URL,
   graphqlUrl: parsed.data.VITE_GRAPHQL_URL,
   multivaultAddress: parsed.data.VITE_MULTIVAULT_ADDRESS,
+  walletConnectProjectId: parsed.data.VITE_WALLETCONNECT_PROJECT_ID,
   networkName: NETWORK_NAME_BY_CHAIN_ID[parsed.data.VITE_CHAIN_ID],
 } as const;
 

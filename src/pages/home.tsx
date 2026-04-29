@@ -2,6 +2,7 @@ import { ClaimBuilder } from '../components/claim-builder';
 import { SchemaPanel } from '../components/schema-panel';
 import { AtomTree } from '../components/atom-tree';
 import { RelationshipGraph } from '../components/relationship-graph';
+import { LiveInstanceGraph } from '../components/live-instance-graph';
 import { PredicateExplorer } from '../components/predicate-explorer';
 import { ClaimHistory } from '../components/claim-history';
 import { BatchBuilder } from '../components/batch-builder';
@@ -50,6 +51,8 @@ export function HomePage() {
           searchQuery={searchQuery}
         />
       </div>
+
+      <LiveInstanceGraph />
 
       <div data-tutorial-step="predicate-explorer">
         <PredicateExplorer

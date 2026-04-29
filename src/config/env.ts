@@ -13,6 +13,7 @@ const HEX_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
 const EnvSchema = z.object({
   VITE_CHAIN_ID: z
     .enum(['1155', '13579'])
+    // boundary: zod-enum guarantees the runtime value is one of the two literals
     .transform((value) => Number(value) as 1155 | 13579),
   VITE_RPC_URL: z.string().url(),
   VITE_GRAPHQL_URL: z.string().url(),

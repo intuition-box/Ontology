@@ -35,13 +35,17 @@ export interface TripleRecord {
  * A triple row with the three atoms joined inline. Used by the live
  * data views (graph, matrix) so a single GraphQL round-trip yields
  * everything needed to render an edge with labeled endpoints.
+ *
+ * Joined atoms are nullable in the indexer schema (the relationship
+ * resolves to `null` when an atom has been pruned but the triple still
+ * references its term_id). Consumers must guard before reading.
  */
 export interface JoinedTripleRecord extends TripleRecord {
   created_at: string;
   creator_id: string;
-  subject: AtomRecord;
-  predicate: AtomRecord;
-  object: AtomRecord;
+  subject: AtomRecord | null;
+  predicate: AtomRecord | null;
+  object: AtomRecord | null;
 }
 
 /** Atom row enriched with the count of triples in which it acts as predicate. */

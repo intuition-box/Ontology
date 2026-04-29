@@ -73,3 +73,20 @@ export function asCurveId(value: bigint): CurveId {
 export function assertNever(value: never): never {
   throw new Error(`Unreachable: ${JSON.stringify(value)}`);
 }
+
+/**
+ * Per-session protocol constants read once from the MultiVault.
+ *
+ * Lives at the type-only layer so both the hook (which fetches via
+ * wagmi) and the services (which consume the snapshot to compute fees
+ * and curve usage) can refer to a single canonical shape — services
+ * stay React-free.
+ */
+export interface IntuitionSession {
+  /** Wei cost to create one atom (sum of protocol fees deducted from each `assets[i]`). */
+  atomCost: bigint;
+  /** Wei cost to create one triple. */
+  tripleCost: bigint;
+  /** Default bonding-curve ID for deposit/redeem operations. */
+  defaultCurveId: CurveId;
+}

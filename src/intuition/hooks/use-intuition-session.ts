@@ -1,17 +1,9 @@
 import { useReadContracts } from 'wagmi';
 import { env } from '../../config/env';
 import { multivaultReadAbi } from '../abi/multivault';
-import { asCurveId, type CurveId } from '../types';
+import { asCurveId, type IntuitionSession } from '../types';
 
-/** Per-session protocol constants read from the MultiVault. */
-export interface IntuitionSession {
-  /** Wei cost to create one atom (sum of protocol fees deducted from each `assets[i]`). */
-  atomCost: bigint;
-  /** Wei cost to create one triple. */
-  tripleCost: bigint;
-  /** Default bonding-curve ID for deposit/redeem operations. */
-  defaultCurveId: CurveId;
-}
+export type { IntuitionSession };
 
 export type UseIntuitionSessionResult =
   | { status: 'loading' }
@@ -97,7 +89,7 @@ export function useIntuitionSession(): UseIntuitionSessionResult {
     data: {
       atomCost: atomCostResult.result,
       tripleCost: tripleCostResult.result,
-      defaultCurveId: asCurveId(curveConfigResult.result[1]),
+      defaultCurveId: asCurveId(curveConfigResult.result.defaultCurveId),
     },
   };
 }

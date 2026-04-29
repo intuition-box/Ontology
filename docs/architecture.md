@@ -101,10 +101,25 @@ These remain as **fallback data** for the read views when the GraphQL indexer is
 | Schema | `lib/schemas/<entity>.schema.ts` | `claim.schema.ts` |
 | Branded type | `lib/types/<domain>.ts` | `intuition.ts` exporting `AtomId`, `TripleId` |
 
-## Migration plan from current state
+## Implementation strategy
 
-The current codebase has `lib/` as a catch-all. The integration phases (see `docs/plan.md`) progressively split it:
+Per ADR-003, the bounty work ships as two branches. The foundation branch leaves all existing code untouched and adds a self-contained `src/intuition/` module that mirrors the layered structure internally:
 
-- React hooks currently in `lib/` (e.g., `use-debounce.ts`, `use-local-storage.ts`) move to `hooks/` in Phase 0.
-- Pure helpers stay in `lib/`.
-- New on-chain logic lands in `services/intuition/` and `services/ipfs/` from Phase 1 onward.
+```
+src/
+  config/
+    env.ts                        # zod-validated env loader (only reader of import.meta.env)
+  intuition/                      # self-contained domain module
+    chains.ts                     # defineChain for Intuition L3 mainnet + testnet
+    types.ts                      # branded AtomId / TripleId / CurveId + assertNever
+    wagmi-config.ts               # wagmi createConfig wired to env-selected chain
+    abi/
+      multivault.ts               # MultiVault read + write ABI fragments
+    services/                     # business logic, no React deps
+      graphql.service.ts          # indexer queries (atoms, triples, predicate resolution)
+      ipfs.service.ts             # IPFS pinning via GraphQL mutations (see ADR-004)
+    hooks/                        # React orchestrators
+      use-intuition-session.ts    # cached atomCost / tripleCost / defaultCurveId
+```
+
+Existing folders (`components/`, `lib/`, `data/`, `pages/`) are not modified by the foundation branch. The bounty branch (built on top) wires the new module into the existing UI: provider in `App.tsx`, submission in `claim-builder.tsx`, live data in the visualization components.

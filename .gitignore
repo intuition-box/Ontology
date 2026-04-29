@@ -20,7 +20,7 @@ dist-ssr
 # Claude Code (personal tooling, not part of the bounty PR)
 .claude/
 CLAUDE.md
-
+docs/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

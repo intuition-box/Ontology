@@ -1,114 +1,160 @@
+import { GraphQLClient, gql } from 'graphql-request';
 import { env } from '../../config/env';
 
 /**
  * IPFS pinning service for structured atom data.
  *
- * Per the Intuition skill convention: every atom except CAIP-10 blockchain
- * addresses is pinned to IPFS first; the resulting `ipfs://...` URI is
- * what gets encoded as `bytes` and submitted to `createAtoms`. Using plain
- * strings as atom data produces legacy TextObject atoms that should not
- * be reused.
+ * The Intuition indexer exposes pinning as GraphQL mutations on the same
+ * endpoint as the read queries (`env.graphqlUrl`). There is no separate
+ * REST/IPFS endpoint to configure: the indexer wraps Pinata/Helia behind
+ * `pinThing`, `pinPerson`, and `pinOrganization` mutations that return an
+ * `ipfs://...` URI.
  *
- * The pinning endpoint is configured via `VITE_IPFS_PIN_ENDPOINT`. It is
- * expected to accept a JSON-LD POST and return `{ uri: "ipfs://..." }`.
- * The exact API contract is provider-specific (Pinata, Web3.Storage,
- * a self-hosted Helia node, the Intuition team's service); the wrapper
- * is generic so the deployment platform sets the endpoint without code
- * changes.
+ * Per the Intuition skill: every atom except CAIP-10 blockchain addresses
+ * is pinned first; the resulting `ipfs://...` URI is what gets encoded as
+ * `bytes` and submitted to `createAtoms`. Plain-string fallbacks produce
+ * legacy TextObject atoms and are not supported here — a pinning failure
+ * is fatal and aborts the on-chain write path.
  */
 
-/** Schema.org Thing — the default schema for generic concept atoms. */
-export interface ThingSchema {
-  '@type': 'Thing';
-  name: string;
-  description?: string;
-  url?: string;
-}
+let cachedClient: GraphQLClient | null = null;
 
-/** Schema.org Person — for people atoms. */
-export interface PersonSchema {
-  '@type': 'Person';
-  name: string;
-  description?: string;
-  url?: string;
+function getClient(): GraphQLClient {
+  if (cachedClient === null) {
+    cachedClient = new GraphQLClient(env.graphqlUrl);
+  }
+  return cachedClient;
 }
-
-/** Schema.org Organization — for company / DAO / project atoms. */
-export interface OrganizationSchema {
-  '@type': 'Organization';
-  name: string;
-  description?: string;
-  url?: string;
-}
-
-export type AtomSchema = ThingSchema | PersonSchema | OrganizationSchema;
 
 export type IpfsUri = `ipfs://${string}`;
 
-interface PinResponse {
-  uri: IpfsUri;
+/** Inputs for a generic Thing atom (schema.org Thing). */
+export interface ThingInput {
+  name: string;
+  description?: string;
+  image?: string;
+  url?: string;
 }
 
-/**
- * Pins structured JSON-LD atom data to IPFS via the configured endpoint.
- *
- * Throws on misconfigured endpoint, network failure, non-2xx response, or
- * unexpected response shape. The on-chain write path treats a thrown
- * pinning error as fatal — emit a `pin_failed` status to the user and
- * abort before issuing any contract call.
- */
-export async function pinAtomData(schema: AtomSchema): Promise<IpfsUri> {
-  if (env.ipfsPinEndpoint === undefined) {
+/** Inputs for a Person atom (schema.org Person). */
+export interface PersonInput extends ThingInput {
+  email?: string;
+  identifier?: string;
+}
+
+/** Inputs for an Organization atom (schema.org Organization). */
+export interface OrganizationInput extends ThingInput {
+  email?: string;
+}
+
+const PIN_THING_MUTATION = gql`
+  mutation PinThing(
+    $name: String!
+    $description: String
+    $image: String
+    $url: String
+  ) {
+    pinThing(
+      thing: { name: $name, description: $description, image: $image, url: $url }
+    ) {
+      uri
+    }
+  }
+`;
+
+const PIN_PERSON_MUTATION = gql`
+  mutation PinPerson(
+    $name: String!
+    $description: String
+    $image: String
+    $url: String
+    $email: String
+    $identifier: String
+  ) {
+    pinPerson(
+      person: {
+        name: $name
+        description: $description
+        image: $image
+        url: $url
+        email: $email
+        identifier: $identifier
+      }
+    ) {
+      uri
+    }
+  }
+`;
+
+const PIN_ORGANIZATION_MUTATION = gql`
+  mutation PinOrganization(
+    $name: String!
+    $description: String
+    $image: String
+    $url: String
+    $email: String
+  ) {
+    pinOrganization(
+      organization: {
+        name: $name
+        description: $description
+        image: $image
+        url: $url
+        email: $email
+      }
+    ) {
+      uri
+    }
+  }
+`;
+
+interface PinThingResponse {
+  pinThing?: { uri?: string | null } | null;
+}
+
+interface PinPersonResponse {
+  pinPerson?: { uri?: string | null } | null;
+}
+
+interface PinOrganizationResponse {
+  pinOrganization?: { uri?: string | null } | null;
+}
+
+function assertIpfsUri(uri: string | null | undefined): IpfsUri {
+  if (typeof uri !== 'string' || !uri.startsWith('ipfs://')) {
     throw new Error(
-      'IPFS pinning endpoint not configured (VITE_IPFS_PIN_ENDPOINT)'
+      `Pinning service returned an invalid URI: ${String(uri)}`
     );
   }
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    ...schema,
-  };
-
-  let response: Response;
-  try {
-    response = await fetch(env.ipfsPinEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(jsonLd),
-    });
-  } catch (cause) {
-    throw new Error('Network error pinning atom data', { cause });
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      `Pinning service responded ${response.status} ${response.statusText}`
-    );
-  }
-
-  // boundary: response shape is contract-defined; guarded below
-  const data = (await response.json()) as PinResponse;
-  if (typeof data.uri !== 'string' || !data.uri.startsWith('ipfs://')) {
-    throw new Error(
-      `Unexpected pinning response shape: ${JSON.stringify(data)}`
-    );
-  }
-  return data.uri;
+  // boundary: validated above, narrowing to the branded template type
+  return uri as IpfsUri;
 }
 
 /** Pin a Thing schema (generic concept atom). */
-export function pinThing(args: Omit<ThingSchema, '@type'>): Promise<IpfsUri> {
-  return pinAtomData({ '@type': 'Thing', ...args });
+export async function pinThing(input: ThingInput): Promise<IpfsUri> {
+  const data = await getClient().request<PinThingResponse>(
+    PIN_THING_MUTATION,
+    input
+  );
+  return assertIpfsUri(data.pinThing?.uri);
 }
 
 /** Pin a Person schema. */
-export function pinPerson(args: Omit<PersonSchema, '@type'>): Promise<IpfsUri> {
-  return pinAtomData({ '@type': 'Person', ...args });
+export async function pinPerson(input: PersonInput): Promise<IpfsUri> {
+  const data = await getClient().request<PinPersonResponse>(
+    PIN_PERSON_MUTATION,
+    input
+  );
+  return assertIpfsUri(data.pinPerson?.uri);
 }
 
 /** Pin an Organization schema. */
-export function pinOrganization(
-  args: Omit<OrganizationSchema, '@type'>
+export async function pinOrganization(
+  input: OrganizationInput
 ): Promise<IpfsUri> {
-  return pinAtomData({ '@type': 'Organization', ...args });
+  const data = await getClient().request<PinOrganizationResponse>(
+    PIN_ORGANIZATION_MUTATION,
+    input
+  );
+  return assertIpfsUri(data.pinOrganization?.uri);
 }

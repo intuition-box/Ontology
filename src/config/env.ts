@@ -21,7 +21,6 @@ const EnvSchema = z.object({
     .regex(HEX_ADDRESS_REGEX, 'must be a 0x-prefixed 40-char hex address')
     // boundary: zod-validated string narrowed to the 0x-prefixed template type
     .transform((value) => value as `0x${string}`),
-  VITE_IPFS_PIN_ENDPOINT: z.string().url().optional(),
 });
 
 const parsed = EnvSchema.safeParse(import.meta.env);
@@ -45,7 +44,6 @@ export const env = {
   rpcUrl: parsed.data.VITE_RPC_URL,
   graphqlUrl: parsed.data.VITE_GRAPHQL_URL,
   multivaultAddress: parsed.data.VITE_MULTIVAULT_ADDRESS,
-  ipfsPinEndpoint: parsed.data.VITE_IPFS_PIN_ENDPOINT,
   networkName: NETWORK_NAME_BY_CHAIN_ID[parsed.data.VITE_CHAIN_ID],
 } as const;
 

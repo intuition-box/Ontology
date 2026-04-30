@@ -1,0 +1,17 @@
+{
+  "app": "Values",
+  "repo": "intuition-box/Values",
+  "description": "Blueprint for community organizations to define, endorse, and rank their core values on-chain.",
+  "atomTypes": [
+    { "id": "Organization", "label": "Organization", "description": "DAO or community entity defining its values" },
+    { "id": "DefinedTerm", "label": "Value", "description": "Core organizational value (e.g., transparency, decentralization)" },
+    { "id": "Person", "label": "Member", "description": "Organization member who endorses values" },
+    { "id": "Thing", "label": "Endorsement", "description": "Member's on-chain endorsement of a value" }
+  ],
+  "predicates": [
+    { "id": "upholds", "label": "upholds", "description": "Organization upholds a core value", "subjectTypes": ["Organization"], "objectTypes": ["DefinedTerm"] },
+    { "id": "endorses", "label": "endorses", "description": "Member endorses a specific value", "subjectTypes": ["Person"], "objectTypes": ["DefinedTerm"] },
+    { "id": "memberOf", "label": "member of", "description": "Person is a member of the organization", "subjectTypes": ["Person"], "objectTypes": ["Organization"] },
+    { "id": "proposes", "label": "proposes", "description": "Member proposes a new value for the organization", "subjectTypes": ["Person"], "objectTypes": ["DefinedTerm"] }
+  ]
+}

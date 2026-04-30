@@ -1,0 +1,19 @@
+{
+  "app": "Atlas",
+  "repo": "intuition-box/Atlas",
+  "description": "Community organization and engagement platform for teams and DAOs.",
+  "atomTypes": [
+    { "id": "Organization", "label": "Community", "description": "Organized group, DAO, or team" },
+    { "id": "Person", "label": "Member", "description": "Community participant (wallet address)" },
+    { "id": "Thing", "label": "Channel", "description": "Communication or topic channel within a community" },
+    { "id": "Event", "label": "Event", "description": "Community event or gathering" },
+    { "id": "DefinedTerm", "label": "Role", "description": "Member role within the community (admin, mod, etc.)" }
+  ],
+  "predicates": [
+    { "id": "memberOf", "label": "member of", "description": "Person is a member of a community", "subjectTypes": ["Person"], "objectTypes": ["Organization"] },
+    { "id": "has_role", "label": "has role", "description": "Member holds a specific role in the community", "subjectTypes": ["Person"], "objectTypes": ["DefinedTerm"] },
+    { "id": "participates_in", "label": "participates in", "description": "Member participates in a channel", "subjectTypes": ["Person"], "objectTypes": ["Thing"] },
+    { "id": "organizedEvent", "label": "organized", "description": "Member organized a community event", "subjectTypes": ["Person"], "objectTypes": ["Event"] },
+    { "id": "belongs_to", "label": "belongs to", "description": "Channel belongs to a community", "subjectTypes": ["Thing"], "objectTypes": ["Organization"] }
+  ]
+}

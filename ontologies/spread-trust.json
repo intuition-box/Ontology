@@ -1,0 +1,15 @@
+{
+  "app": "Spread Trust",
+  "repo": "intuition-box/spread-trust",
+  "description": "Burner wallet PWA for spreading $TRUST tokens on Intuition Chain. Enables easy onboarding and trust propagation.",
+  "atomTypes": [
+    { "id": "Person", "label": "User", "description": "Wallet address sending or receiving TRUST" },
+    { "id": "Thing", "label": "TrustTransfer", "description": "TRUST token transfer event on-chain" },
+    { "id": "EthereumAccount", "label": "BurnerWallet", "description": "Ephemeral wallet for frictionless onboarding" }
+  ],
+  "predicates": [
+    { "id": "trusts", "label": "trusts", "description": "User places trust in another user via token transfer", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "sent_trust", "label": "sent trust", "description": "User sent TRUST tokens to another", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "created_burner", "label": "created burner", "description": "User created an ephemeral burner wallet", "subjectTypes": ["Person"], "objectTypes": ["EthereumAccount"] }
+  ]
+}

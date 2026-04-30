@@ -1,0 +1,15 @@
+{
+  "app": "Graph",
+  "repo": "intuition-box/Graph",
+  "description": "Trust graph visualization tool showing weighted trust connections between users.",
+  "atomTypes": [
+    { "id": "Person", "label": "User", "description": "Wallet address in the trust network" },
+    { "id": "Thing", "label": "TrustEdge", "description": "Weighted trust connection between users" },
+    { "id": "Thing", "label": "Cluster", "description": "Group of mutually trusted users" }
+  ],
+  "predicates": [
+    { "id": "trusts", "label": "trusts", "description": "User places trust in another user", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "trust_weight", "label": "trust weight", "description": "Weighted trust score between users", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "in_cluster", "label": "in cluster", "description": "User belongs to a trust cluster", "subjectTypes": ["Person"], "objectTypes": ["Thing"] }
+  ]
+}

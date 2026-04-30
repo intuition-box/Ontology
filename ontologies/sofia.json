@@ -1,0 +1,23 @@
+{
+  "app": "Sofia",
+  "repo": "intuition-box/Sofia",
+  "description": "Chrome extension that transforms browsing into certified knowledge on the Intuition protocol. AI workflows classify intent, pin URLs to IPFS, and create atoms/triples.",
+  "atomTypes": [
+    { "id": "URL", "label": "URL", "description": "Web page URL pinned via IPFS as certified knowledge" },
+    { "id": "Person", "label": "User", "description": "Wallet address / on-chain identity" },
+    { "id": "DefinedTerm", "label": "Intention", "description": "Browsing intent classification (learning, work, fun, buying, inspiration, music)" },
+    { "id": "DefinedTerm", "label": "Theme", "description": "AI-extracted topic/category from browsing patterns" },
+    { "id": "DefinedTerm", "label": "Skill", "description": "User competency derived from browsing and AI analysis" },
+    { "id": "Thing", "label": "Certificate", "description": "On-chain browsing certification proving knowledge acquisition" },
+    { "id": "Thing", "label": "TrustCircle", "description": "Group of mutually trusted users forming a reputation cluster" }
+  ],
+  "predicates": [
+    { "id": "certifies", "label": "certifies", "description": "User certifies a URL as valuable knowledge", "subjectTypes": ["Person"], "objectTypes": ["URL"] },
+    { "id": "has_intention", "label": "has intention", "description": "URL is classified with a browsing intention", "subjectTypes": ["URL"], "objectTypes": ["DefinedTerm"] },
+    { "id": "has_theme", "label": "has theme", "description": "URL is tagged with an extracted topic", "subjectTypes": ["URL"], "objectTypes": ["DefinedTerm"] },
+    { "id": "trusts", "label": "trusts", "description": "User places trust in another user", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "distrusts", "label": "distrusts", "description": "User expresses distrust toward another user", "subjectTypes": ["Person"], "objectTypes": ["Person"] },
+    { "id": "has_skill", "label": "has skill", "description": "User has demonstrated competency in a skill area", "subjectTypes": ["Person"], "objectTypes": ["DefinedTerm"] },
+    { "id": "in_circle", "label": "in circle", "description": "User belongs to a trust circle", "subjectTypes": ["Person"], "objectTypes": ["Thing"] }
+  ]
+}

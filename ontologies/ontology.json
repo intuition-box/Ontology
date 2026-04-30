@@ -1,0 +1,15 @@
+{
+  "app": "Ontology",
+  "repo": "intuition-box/Ontology",
+  "description": "Ontology explorer and visualizer. The meta-tool for defining, browsing, and publishing atom types, predicates, and valid type combinations.",
+  "atomTypes": [
+    { "id": "DefinedTerm", "label": "EntityType", "description": "Schema type definition (e.g., Person, Organization, Skill)" },
+    { "id": "DefinedTerm", "label": "Predicate", "description": "Relationship type definition" },
+    { "id": "Thing", "label": "Claim", "description": "User-created assertion (subject-predicate-object triple)" }
+  ],
+  "predicates": [
+    { "id": "isA", "label": "is a", "description": "Entity type inherits from another type", "subjectTypes": ["DefinedTerm"], "objectTypes": ["DefinedTerm"] },
+    { "id": "has_predicate", "label": "has predicate", "description": "Entity type supports a specific predicate", "subjectTypes": ["DefinedTerm"], "objectTypes": ["DefinedTerm"] },
+    { "id": "valid_for", "label": "valid for", "description": "Predicate is valid for a specific entity type (domain/range)", "subjectTypes": ["DefinedTerm"], "objectTypes": ["DefinedTerm"] }
+  ]
+}

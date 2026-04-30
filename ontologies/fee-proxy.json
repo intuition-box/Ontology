@@ -1,0 +1,15 @@
+{
+  "app": "Fee Proxy Template",
+  "repo": "intuition-box/Fee-Proxy-Template",
+  "description": "Customizable proxy contract for Intuition MultiVault. Developers deploy their own proxy with configurable creation fees, deposit percentages, and admin controls.",
+  "atomTypes": [
+    { "id": "EthereumSmartContract", "label": "FeeProxy", "description": "Deployed fee proxy contract instance" },
+    { "id": "Person", "label": "Admin", "description": "Proxy administrator who controls fee configuration" },
+    { "id": "Thing", "label": "FeeConfig", "description": "Fee configuration parameters (creation fee + deposit percentage)" }
+  ],
+  "predicates": [
+    { "id": "controlledBy", "label": "controlled by", "description": "Fee proxy is administered by a wallet", "subjectTypes": ["EthereumSmartContract"], "objectTypes": ["Person"] },
+    { "id": "has_config", "label": "has config", "description": "Proxy has a specific fee configuration", "subjectTypes": ["EthereumSmartContract"], "objectTypes": ["Thing"] },
+    { "id": "deployedOn", "label": "deployed on", "description": "Proxy contract is deployed on Intuition L3", "subjectTypes": ["EthereumSmartContract"], "objectTypes": ["Thing"] }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "app": "RPC",
+  "repo": "intuition-box/RPC",
+  "description": "One-click deployable RPC endpoint tooling for the Intuition L3 chain.",
+  "atomTypes": [
+    { "id": "WebSite", "label": "RPCEndpoint", "description": "RPC service endpoint instance" },
+    { "id": "Person", "label": "Operator", "description": "Node operator running the RPC endpoint" },
+    { "id": "Thing", "label": "Chain", "description": "Blockchain network (Intuition L3)" }
+  ],
+  "predicates": [
+    { "id": "serves", "label": "serves", "description": "RPC endpoint serves a specific chain", "subjectTypes": ["WebSite"], "objectTypes": ["Thing"] },
+    { "id": "operated_by", "label": "operated by", "description": "RPC endpoint is operated by a node operator", "subjectTypes": ["WebSite"], "objectTypes": ["Person"] }
+  ]
+}

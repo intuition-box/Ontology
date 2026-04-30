@@ -242,7 +242,19 @@ export function LiveInstanceGraph({
       )
       .force('charge', d3.forceManyBody().strength(-200))
       .force('center', d3.forceCenter(0, 0))
-      .force('collide', d3.forceCollide(28));
+      .force('collide', d3.forceCollide(28))
+      // Pre-warm the simulation so nodes land at their converged
+      // coordinates before the first DOM render. Without this, every
+      // data refetch produces a few seconds of visible "collision dance"
+      // as the layout settles. Running ~300 ticks in memory matches
+      // the default alphaDecay (0.0228) bringing alpha below 0.001
+      // — i.e., the same end state D3 would reach after ~5s of animated
+      // ticking, but instantaneous from the user's perspective.
+      .stop();
+    for (let i = 0; i < 300; i++) {
+      simulation.tick();
+    }
+    simulation.alpha(0.05).alphaTarget(0).restart();
 
     const link = g
       .append('g')
@@ -412,12 +424,30 @@ export function LiveInstanceGraph({
   // — drives the click-from-recent-claims pivot UX. Reads node
   // positions from a ref since they're mutated by the simulation tick
   // and we don't want this effect to retrigger on every tick.
+  //
+  // The effect also fires when `nodes` change so a "See on graph"
+  // pivot triggered immediately after a fresh submission can land
+  // once the indexer catches up and the new node enters the dataset.
+  // `lastZoomedRef` ensures we don't re-zoom on every node-array
+  // refresh once the focus has already been applied.
   const nodesRef = useRef<AtomNode[]>(nodes);
+  const lastZoomedRef = useRef<string | null>(null);
   useEffect(() => {
     nodesRef.current = nodes;
   });
   useEffect(() => {
-    if (selectedAtomId === null || selectedAtomId === undefined) return;
+    if (selectedAtomId === null || selectedAtomId === undefined) {
+      lastZoomedRef.current = null;
+      return;
+    }
+    if (lastZoomedRef.current === selectedAtomId) return;
+    // Wait for the target to be present in the current nodes array.
+    // For a freshly-published atom, the data refetch may take one or
+    // two cycles before it shows up here — until then, bail and let
+    // the next nodes update re-fire the effect. Once the target is
+    // present, the simulation has already pre-warmed (see the main
+    // effect) so its coordinates are at their converged values; we
+    // can zoom immediately.
     const target = nodesRef.current.find((n) => n.id === selectedAtomId);
     if (
       target === undefined ||
@@ -435,8 +465,9 @@ export function LiveInstanceGraph({
       .transition()
       .duration(D3_RESET_DURATION_MS)
       .call(zoomRef.current.transform, transform);
+    lastZoomedRef.current = selectedAtomId;
     setHasInteracted(true);
-  }, [selectedAtomId]);
+  }, [selectedAtomId, nodes]);
 
   const status = liveTriplesQuery.isLoading
     ? 'loading'

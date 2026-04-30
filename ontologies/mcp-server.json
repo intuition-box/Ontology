@@ -1,0 +1,15 @@
+{
+  "app": "MCP Server",
+  "repo": "intuition-box/MCP-Server",
+  "description": "MCP server exposing Intuition protocol knowledge graph data as tools that LLMs can call.",
+  "atomTypes": [
+    { "id": "SoftwareApplication", "label": "MCPServer", "description": "MCP server instance exposing protocol data" },
+    { "id": "Thing", "label": "MCPTool", "description": "Individual tool function exposed by the server" },
+    { "id": "SoftwareApplication", "label": "LLMAgent", "description": "AI agent consuming the MCP server" }
+  ],
+  "predicates": [
+    { "id": "exposes", "label": "exposes", "description": "MCP server exposes a callable tool", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["Thing"] },
+    { "id": "queries", "label": "queries", "description": "LLM agent queries the MCP server", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["SoftwareApplication"] },
+    { "id": "dependsOn", "label": "depends on", "description": "MCP tool reads from on-chain atoms/triples", "subjectTypes": ["Thing"], "objectTypes": ["Thing"] }
+  ]
+}

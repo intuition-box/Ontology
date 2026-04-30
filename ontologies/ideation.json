@@ -1,0 +1,15 @@
+{
+  "app": "Intuition Ideation",
+  "repo": "intuition-box/intuition-ideation-skill",
+  "description": "Claude Code skill for brainstorming, structuring, and publishing product ideas for the Intuition Protocol ecosystem.",
+  "atomTypes": [
+    { "id": "Thing", "label": "Idea", "description": "Product idea or concept for the ecosystem" },
+    { "id": "Person", "label": "Builder", "description": "Idea creator/proposer" },
+    { "id": "DefinedTerm", "label": "Category", "description": "Idea category (DeFi, Social, Infrastructure, etc.)" }
+  ],
+  "predicates": [
+    { "id": "proposed_by", "label": "proposed by", "description": "Idea was proposed by a builder", "subjectTypes": ["Thing"], "objectTypes": ["Person"] },
+    { "id": "taggedWith", "label": "categorized as", "description": "Idea is categorized under a domain", "subjectTypes": ["Thing"], "objectTypes": ["DefinedTerm"] },
+    { "id": "dependsOn", "label": "builds on", "description": "Idea builds on or depends on another idea", "subjectTypes": ["Thing"], "objectTypes": ["Thing"] }
+  ]
+}

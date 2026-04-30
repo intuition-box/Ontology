@@ -1,0 +1,15 @@
+{
+  "description": "Cross-app shared types — atom types and predicates that appear across multiple ecosystem apps. All apps MUST use these exact IDs for consistency.",
+  "sharedAtomTypes": [
+    { "id": "Person", "label": "Person / User", "description": "Wallet address. Universal identity across all Intuition apps.", "usedBy": ["Sofia", "Atlas", "AgentId", "Values", "Graph", "Spread Trust", "Fee Proxy", "RPC", "MCP Server", "Ideation", "Ontology"] },
+    { "id": "Organization", "label": "Organization", "description": "DAO, company, or community entity.", "usedBy": ["Atlas", "Values"] },
+    { "id": "DefinedTerm", "label": "Concept / Tag", "description": "Abstract concept, skill, value, or classification term.", "usedBy": ["Sofia", "AgentId", "Values", "Atlas", "Ideation", "Ontology"] },
+    { "id": "SoftwareApplication", "label": "Software / Agent", "description": "Software application or AI agent.", "usedBy": ["AgentId", "MCP Server"] },
+    { "id": "EthereumSmartContract", "label": "Smart Contract", "description": "On-chain smart contract (e.g., Fee Proxy, MultiVault).", "usedBy": ["Fee Proxy"] },
+    { "id": "Event", "label": "Event", "description": "Community event or gathering.", "usedBy": ["Atlas"] }
+  ],
+  "sharedPredicates": [
+    { "id": "trusts", "label": "trusts", "description": "Universal trust relationship between entities.", "usedBy": ["Sofia", "Graph", "Spread Trust", "AgentId"] },
+    { "id": "memberOf", "label": "member of", "description": "Person belongs to an organization or community.", "usedBy": ["Atlas", "Values"] }
+  ]
+}

@@ -49,6 +49,7 @@ export function useSubmitClaim() {
   const canSubmit = isConnected && !env.isDemo && status === 'idle';
 
   const submitClaim = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     (subject: string, _subjectType: string | null) => {
       setSubmitError(null);
 

@@ -126,13 +126,33 @@ function buildInstanceGraph(
   return { nodes: Array.from(nodeMap.values()), links };
 }
 
-export function LiveInstanceGraph() {
+export interface LiveInstanceGraphProps {
+  /** Atom term_id to keep highlighted across hovers (driven by sibling
+   *  components like the recent-claims sidebar). When non-null, the
+   *  matching node is enlarged with an accent ring and only its
+   *  immediate neighborhood stays at full opacity. */
+  selectedAtomId?: string | null;
+  /** Called when the user clicks an atom node in the graph itself —
+   *  consumers can mirror the selection in their own UI. */
+  onSelectAtom?: (atomId: string | null) => void;
+}
+
+export function LiveInstanceGraph({
+  selectedAtomId = null,
+  onSelectAtom,
+}: LiveInstanceGraphProps = {}) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const nodeSelRef = useRef<d3.Selection<SVGGElement, AtomNode, SVGGElement, unknown> | null>(null);
+  const linkSelRef = useRef<d3.Selection<SVGLineElement, TripleEdgeRaw, SVGGElement, unknown> | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Stable callback ref so D3 click handlers don't go stale
+  const onSelectAtomRef = useRef(onSelectAtom);
+  onSelectAtomRef.current = onSelectAtom;
 
   const liveTriplesQuery = useLiveTriples({ limit: 100 });
   const { nodes, links } = useMemo(() => {
@@ -233,6 +253,7 @@ export function LiveInstanceGraph() {
       .attr('stroke-width', 1)
       .attr('stroke-opacity', 0.45)
       .attr('marker-end', 'url(#live-arrowhead)')
+      .attr('data-edge-id', (d, i) => `edge-${i}`)
       .style('cursor', 'pointer')
       .on('mouseenter', (event: MouseEvent, d) => {
         const tooltip = tooltipRef.current;
@@ -260,6 +281,11 @@ export function LiveInstanceGraph() {
       .data(nodes)
       .join('g')
       .style('cursor', 'pointer')
+      .on('click', (_event, d: AtomNode) => {
+        if (onSelectAtomRef.current !== undefined) {
+          onSelectAtomRef.current(d.id);
+        }
+      })
       .call(
         d3
           .drag<SVGGElement, AtomNode>()
@@ -329,10 +355,57 @@ export function LiveInstanceGraph() {
       node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
     });
 
+    nodeSelRef.current = node;
+    linkSelRef.current = link;
+
     return () => {
       simulation.stop();
     };
   }, [nodes, links, isFullscreen]);
+
+  // Apply the externally-driven `selectedAtomId` highlight without
+  // rebuilding the simulation: dim everything except the selected
+  // node and its immediate neighbors, scale the selected node up.
+  useEffect(() => {
+    const node = nodeSelRef.current;
+    const link = linkSelRef.current;
+    if (node === null || link === null) return;
+
+    if (selectedAtomId === null || selectedAtomId === undefined) {
+      node.select('circle')
+        .attr('r', 8)
+        .attr('stroke', 'var(--color-bg)')
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 1);
+      node.select('text').attr('opacity', 1).attr('font-weight', '500');
+      link.attr('stroke-opacity', 0.45);
+      return;
+    }
+
+    const connectedIds = new Set<string>([selectedAtomId]);
+    for (const l of links) {
+      const srcId = endpointId(l.source);
+      const tgtId = endpointId(l.target);
+      if (srcId === selectedAtomId && tgtId !== null) connectedIds.add(tgtId);
+      if (tgtId === selectedAtomId && srcId !== null) connectedIds.add(srcId);
+    }
+
+    node.select<SVGCircleElement>('circle')
+      .attr('r', (n) => (n.id === selectedAtomId ? 11 : 8))
+      .attr('stroke', (n) =>
+        n.id === selectedAtomId ? 'var(--color-accent)' : 'var(--color-bg)'
+      )
+      .attr('stroke-width', (n) => (n.id === selectedAtomId ? 2.5 : 1.5))
+      .attr('opacity', (n) => (connectedIds.has(n.id) ? 1 : 0.15));
+    node.select<SVGTextElement>('text')
+      .attr('opacity', (n) => (connectedIds.has(n.id) ? 1 : 0.15))
+      .attr('font-weight', (n) => (n.id === selectedAtomId ? '700' : '500'));
+    link.attr('stroke-opacity', (l) => {
+      const srcId = endpointId(l.source);
+      const tgtId = endpointId(l.target);
+      return srcId === selectedAtomId || tgtId === selectedAtomId ? 0.9 : 0.05;
+    });
+  }, [selectedAtomId, links]);
 
   const status = liveTriplesQuery.isLoading
     ? 'loading'
@@ -343,8 +416,8 @@ export function LiveInstanceGraph() {
         : 'ready';
 
   return (
-    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-[var(--color-bg)] p-6 overflow-auto' : ''}>
-      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] h-full min-h-[480px] flex flex-col relative overflow-hidden">
+    <div className={isFullscreen ? 'fixed inset-0 z-50 bg-[var(--color-bg)] p-6 overflow-auto' : 'h-full'}>
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] h-[940px] flex flex-col relative overflow-hidden">
         <div
           className="absolute inset-x-0 top-0 z-10 rounded-t-xl p-6"
           style={{

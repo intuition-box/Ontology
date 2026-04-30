@@ -15,6 +15,8 @@ import {
 } from '../data/semantic-rankings';
 import { ATOM_TYPES } from '../data/atom-types';
 import { getAtomColor } from '../lib/atom-colors';
+import { useLiveTriples } from '../intuition/hooks/use-live-triples';
+import type { JoinedTripleRecord } from '../intuition/services/graphql.service';
 
 interface ClaimMatrixProps {
   /** Single subject type filter (home page use case) */
@@ -26,6 +28,25 @@ interface ClaimMatrixProps {
 }
 
 export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searchQuery }: ClaimMatrixProps) {
+  // Live triples from the indexer surface the most recent on-chain
+  // claims as instance-level rows — the visible counterpart to the
+  // schema-only grid below. Falls back gracefully when the indexer
+  // is empty or unreachable (the section just hides).
+  const liveTriplesQuery = useLiveTriples({ limit: 50 });
+  const recentLiveClaims = useMemo(() => {
+    const triples = liveTriplesQuery.data;
+    if (triples === undefined) return [];
+    return triples.filter(
+      (t): t is JoinedTripleRecord & {
+        subject: NonNullable<JoinedTripleRecord['subject']>;
+        predicate: NonNullable<JoinedTripleRecord['predicate']>;
+        object: NonNullable<JoinedTripleRecord['object']>;
+      } =>
+        t.subject !== null && t.predicate !== null && t.object !== null
+    );
+  }, [liveTriplesQuery.data]);
+  const liveTriplesTotal = liveTriplesQuery.data?.length ?? 0;
+
   const allMappings = useMemo(() => {
     let base: EntityMapping[];
     if (subjectTypeId) {
@@ -84,12 +105,16 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
 
   return (
     <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         <h2 className="text-lg font-semibold text-[var(--color-text)]">Entity Matrix</h2>
         <span className="text-xs text-[var(--color-text-muted)] bg-[var(--color-surface-hover)] px-1.5 py-0.5 rounded-full">
           {allMappings.length} {allMappings.length === 1 ? 'combination' : 'combinations'}
         </span>
+        <LiveTriplesPill query={liveTriplesQuery} count={liveTriplesTotal} />
       </div>
+
+      <RecentLiveClaims claims={recentLiveClaims} definedTermColor={definedTermColor} />
+
       {/* Column headers */}
       <div className="hidden sm:grid grid-cols-3 gap-2 mb-2" aria-hidden="true">
         {['Subject', 'Predicate', 'Object'].map((h, i) => (
@@ -154,6 +179,122 @@ export function ClaimMatrix({ subjectTypeId, filterTypeIds, onSelectClaim, searc
 
     </div>
   );
+}
+
+// ─── Live Sections ───────────────────────────────────────────
+
+/**
+ * Renders a status pill mirroring the relationship-graph and atom-tree
+ * patterns so the matrix surfaces indexer connectivity at all times.
+ */
+function LiveTriplesPill({
+  query,
+  count,
+}: {
+  query: ReturnType<typeof useLiveTriples>;
+  count: number;
+}) {
+  if (query.isLoading) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
+        Loading
+      </span>
+    );
+  }
+  if (query.error !== null && query.error !== undefined) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
+        title={query.error.message}
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
+        Indexer error
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]"
+      title={`${count} triples indexed onchain`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
+      {count} onchain
+    </span>
+  );
+}
+
+type LiveClaim = JoinedTripleRecord & {
+  subject: NonNullable<JoinedTripleRecord['subject']>;
+  predicate: NonNullable<JoinedTripleRecord['predicate']>;
+  object: NonNullable<JoinedTripleRecord['object']>;
+};
+
+/**
+ * Lists the most recent on-chain claims with their actual atom labels —
+ * the instance-level counterpart to the schema-only matrix below. The
+ * section hides itself when the indexer has nothing to show, keeping
+ * the existing static layout untouched in offline mode.
+ */
+function RecentLiveClaims({
+  claims,
+  definedTermColor,
+}: {
+  claims: LiveClaim[];
+  definedTermColor: string;
+}) {
+  const top = claims.slice(0, 5);
+  if (top.length === 0) return null;
+
+  return (
+    <div className="mb-5 rounded-lg border border-[var(--color-accent)]/20 bg-[var(--color-accent)]/5 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]"
+          aria-hidden
+        />
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">
+          Recent onchain claims
+        </span>
+      </div>
+      <ul className="space-y-1.5">
+        {top.map((claim) => {
+          const subjectColor = liveAtomColor(claim.subject.type);
+          const objectColor = liveAtomColor(claim.object.type);
+          return (
+            <li
+              key={claim.term_id}
+              className="flex items-center gap-2 font-mono text-xs"
+            >
+              <span style={{ color: subjectColor }} className="truncate max-w-[200px]">
+                {claim.subject.label || '(unlabeled)'}
+              </span>
+              <span className="text-[var(--color-text-muted)]">—</span>
+              <span style={{ color: definedTermColor }} className="truncate max-w-[200px]">
+                {claim.predicate.label || '(unlabeled)'}
+              </span>
+              <span className="text-[var(--color-text-muted)]">—</span>
+              <span style={{ color: objectColor }} className="truncate max-w-[200px]">
+                {claim.object.label || '(unlabeled)'}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * Resolves a color for a live atom's type, falling back to a neutral
+ * shade when the indexer reports a type that doesn't appear in our
+ * static palette (e.g., legacy `TextObject` rows).
+ */
+function liveAtomColor(type: string): string {
+  if (ATOM_TYPES.some((t) => t.id === type)) {
+    return getAtomColor(type);
+  }
+  return 'var(--color-text-secondary)';
 }
 
 // ─── Row Components ──────────────────────────────────────────

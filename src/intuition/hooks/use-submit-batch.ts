@@ -121,16 +121,20 @@ export function useSubmitBatch(): UseSubmitBatchReturn {
           },
           onPhase: (phase: ClaimSubmissionPhase) => setState(phase),
         });
-        // Every result in a batch shares the same pair of tx hashes;
-        // pull them from the first entry. Both can be `undefined`:
-        // `atomTxHash` when no atom needed creation, `tripleTxHash`
-        // when every triple already existed on-chain.
-        const first = results[0];
+        // `atomTxHash` is shared across the batch (single createAtoms
+        // call). `tripleTxHash` is per-draft: `undefined` for entries
+        // whose triple already existed on-chain, the shared
+        // `createTriples` hash otherwise. Surface the shared hash by
+        // picking the first non-undefined entry — `undefined` only when
+        // the entire batch was duplicates.
+        const sharedTripleTxHash = results.find(
+          (r) => r.tripleTxHash !== undefined
+        )?.tripleTxHash;
         setState({
           status: 'confirmed',
           results,
-          atomTxHash: first?.atomTxHash,
-          tripleTxHash: first?.tripleTxHash,
+          atomTxHash: results[0]?.atomTxHash,
+          tripleTxHash: sharedTripleTxHash,
         });
         // Refresh every live query (atoms, triples, positions...) so the
         // graph and tree views pick up the freshly-published claims

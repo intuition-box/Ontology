@@ -245,7 +245,18 @@ function BatchSubmissionStatus({
     >
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium">
-          {STATUS_LABELS[state.status]}
+          {state.status === 'confirmed' &&
+          state.tripleTxHash === undefined &&
+          state.results.length > 0
+            ? 'All claims were already onchain'
+            : STATUS_LABELS[state.status]}
+          {state.status === 'confirmed' &&
+            state.tripleTxHash !== undefined &&
+            state.results.some((r) => r.tripleTxHash === undefined) && (
+              <span className="ml-1 text-[var(--color-text-muted)]">
+                (some were already onchain)
+              </span>
+            )}
           {state.status === 'creating-atoms' && state.atomCount > 0 ? (
             <span className="ml-1 text-[var(--color-text-muted)]">
               ({state.atomCount} atom{state.atomCount > 1 ? 's' : ''})
@@ -293,6 +304,7 @@ function BatchSubmissionStatus({
                 if (draft === undefined) return null;
                 const subjectColor = getAtomColor(draft.subjectType);
                 const objectColor = getAtomColor(draft.objectType);
+                const wasAlreadyOnchain = result.tripleTxHash === undefined;
                 return (
                   <li
                     key={result.tripleId}
@@ -314,6 +326,14 @@ function BatchSubmissionStatus({
                         {draft.object}
                       </span>
                     </div>
+                    {wasAlreadyOnchain && (
+                      <span
+                        className="shrink-0 rounded-md border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300"
+                        title="This triple was already published — no new transaction was needed"
+                      >
+                        already onchain
+                      </span>
+                    )}
                     {onFocusOnGraph !== undefined && (
                       <button
                         type="button"

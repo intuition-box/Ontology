@@ -418,7 +418,12 @@ export class ClaimSubmissionService {
       predicateAtomId: predicateIds[i]!,
       objectAtomId: objectIds[i]!,
       atomTxHash,
-      tripleTxHash,
+      // Per-draft tripleTxHash so the UI can distinguish which entries
+      // were freshly created vs which were short-circuited because the
+      // triple was already on-chain at submit time. The whole-batch
+      // `tripleTxHash` only applies to drafts that went through the
+      // shared createTriples call.
+      tripleTxHash: tripleExistsFlags[i] === true ? undefined : tripleTxHash,
     }));
   }
 }

@@ -292,7 +292,9 @@ function SubmissionStatusPanel({
     >
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium">
-          {STATUS_LABELS[state.status]}
+          {state.status === 'confirmed' && state.tripleTxHash === undefined
+            ? 'Claim already onchain'
+            : STATUS_LABELS[state.status]}
           {state.status === 'creating-atoms' && state.atomCount > 0 ? (
             <span className="ml-1 text-[var(--color-text-muted)]">
               ({state.atomCount} atom{state.atomCount > 1 ? 's' : ''})
@@ -311,6 +313,12 @@ function SubmissionStatusPanel({
 
       {state.status === 'confirmed' && (
         <>
+          {state.tripleTxHash === undefined && (
+            <p className="mt-2 text-xs text-emerald-300/80">
+              This triple was already published — no new transaction was
+              needed. The claim is live on the graph below.
+            </p>
+          )}
           <div className="mt-2 space-y-1 font-mono text-xs">
             {state.atomTxHash && explorerBase && (
               <a

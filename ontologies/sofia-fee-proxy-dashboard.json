@@ -1,0 +1,15 @@
+{
+  "app": "Sofia Fee Proxy Dashboard",
+  "repo": "intuition-box/Sofia-Fee-Proxy-Dashboard",
+  "description": "Dashboard showing revenue metrics and analytics for Sofia's fee proxy contract.",
+  "atomTypes": [
+    { "id": "EthereumSmartContract", "label": "FeeProxy", "description": "Sofia's deployed fee proxy contract" },
+    { "id": "Thing", "label": "Metric", "description": "Revenue or volume metric data point" },
+    { "id": "DefinedTerm", "label": "Period", "description": "Time period for metric aggregation (daily/weekly/monthly)" }
+  ],
+  "predicates": [
+    { "id": "generated_revenue", "label": "generated revenue", "description": "Fee proxy generated revenue in a period", "subjectTypes": ["EthereumSmartContract"], "objectTypes": ["Thing"] },
+    { "id": "during_period", "label": "during period", "description": "Metric is aggregated over a time period", "subjectTypes": ["Thing"], "objectTypes": ["DefinedTerm"] },
+    { "id": "proxy_for", "label": "proxy for", "description": "Fee proxy serves a specific application", "subjectTypes": ["EthereumSmartContract"], "objectTypes": ["SoftwareApplication"] }
+  ]
+}

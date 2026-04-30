@@ -1,0 +1,21 @@
+{
+  "app": "AgentId",
+  "repo": "intuition-box/agentId",
+  "description": "Decentralized Trust Registry for AI Agents. Register identity, declare capabilities, and build verifiable reputation through crypto-economic staking.",
+  "atomTypes": [
+    { "id": "SoftwareApplication", "label": "Agent", "description": "AI agent identity registered on-chain" },
+    { "id": "DefinedTerm", "label": "Capability", "description": "Declared agent capability or skill" },
+    { "id": "Thing", "label": "Reputation", "description": "Staking-based verifiable reputation score" },
+    { "id": "Person", "label": "Operator", "description": "Human operator who controls/owns the agent" },
+    { "id": "Thing", "label": "Credential", "description": "Verifiable agent credential or certification" }
+  ],
+  "predicates": [
+    { "id": "has_capability", "label": "has capability", "description": "Agent declares a specific capability", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["DefinedTerm"] },
+    { "id": "operated_by", "label": "operated by", "description": "Agent is operated/owned by a human", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["Person"] },
+    { "id": "has_reputation", "label": "has reputation", "description": "Agent has an on-chain reputation score", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["Thing"] },
+    { "id": "staked_on", "label": "staked on", "description": "Operator has staked tokens on an agent's identity", "subjectTypes": ["Person"], "objectTypes": ["SoftwareApplication"] },
+    { "id": "endorses", "label": "endorses", "description": "Agent endorses another agent's capabilities", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["SoftwareApplication"] },
+    { "id": "holds_credential", "label": "holds credential", "description": "Agent holds a verifiable credential", "subjectTypes": ["SoftwareApplication"], "objectTypes": ["Thing"] },
+    { "id": "trusts", "label": "trusts", "description": "Operator trusts an agent", "subjectTypes": ["Person"], "objectTypes": ["SoftwareApplication"] }
+  ]
+}

@@ -6,6 +6,7 @@ import { PredicateExplorer } from '../components/predicate-explorer';
 import { ClaimHistory } from '../components/claim-history';
 import { BatchBuilder } from '../components/batch-builder';
 import { OnchainFeed } from '../components/onchain-feed';
+import { OnchainStats } from '../components/onchain-stats';
 import { useClaimWorkspace } from '../lib/use-claim-workspace';
 import { useSubmitClaim } from '../hooks/use-submit-claim';
 
@@ -51,6 +52,12 @@ export function HomePage() {
 
       {/* Live onchain data from Intuition protocol */}
       <OnchainFeed />
+
+      {/* Live stats augmenting the static ontology views */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-[var(--color-text)]">Ontology Explorer</h2>
+        <OnchainStats />
+      </div>
 
       <div
         className="grid grid-cols-1 gap-2 lg:grid-cols-3"

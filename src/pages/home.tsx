@@ -5,6 +5,7 @@ import { RelationshipGraph } from '../components/relationship-graph';
 import { PredicateExplorer } from '../components/predicate-explorer';
 import { ClaimHistory } from '../components/claim-history';
 import { BatchBuilder } from '../components/batch-builder';
+import { OnchainFeed } from '../components/onchain-feed';
 import { useClaimWorkspace } from '../lib/use-claim-workspace';
 
 export function HomePage() {
@@ -33,6 +34,9 @@ export function HomePage() {
         <ClaimHistory searchQuery={searchQuery} />
         <BatchBuilder searchQuery={searchQuery} />
       </div>
+
+      {/* Live onchain data from Intuition protocol */}
+      <OnchainFeed />
 
       <div
         className="grid grid-cols-1 gap-2 lg:grid-cols-3"

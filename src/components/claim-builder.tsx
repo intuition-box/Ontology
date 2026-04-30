@@ -21,7 +21,10 @@ interface ClaimBuilderProps {
   onSubjectValueChange?: (value: string) => void;
   onPredicateChange?: (predicateId: string | null) => void;
   onSave?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => void;
-  onAddToBatch?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => void;
+  /** Returns false when the entry was rejected as a duplicate of an
+   *  already-queued claim (same subject+predicate+object) so the
+   *  builder can surface a brief feedback to the user. */
+  onAddToBatch?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => boolean;
   /** Called from the post-submission status panel when the user wants
    *  the freshly-published claim's subject focused in the live graph
    *  below. The page is responsible for scrolling the graph into view
@@ -125,9 +128,13 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
       if (claim) onSave?.(claim);
     }, [buildClaim, onSave]);
 
+    const [batchFeedback, setBatchFeedback] = useState<'added' | 'duplicate' | null>(null);
     const handleAddToBatch = useCallback(() => {
       const claim = buildClaim();
-      if (claim) onAddToBatch?.(claim);
+      if (claim === null || onAddToBatch === undefined) return;
+      const wasAdded = onAddToBatch(claim);
+      setBatchFeedback(wasAdded ? 'added' : 'duplicate');
+      window.setTimeout(() => setBatchFeedback(null), 1800);
     }, [buildClaim, onAddToBatch]);
 
     const { isConnected } = useAccount();
@@ -225,6 +232,20 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
             canPublish={onchain.isReady}
             publishHint={publishHint}
           />
+          {batchFeedback !== null && (
+            <p
+              role="status"
+              className={`mt-2 text-xs ${
+                batchFeedback === 'duplicate'
+                  ? 'text-amber-300'
+                  : 'text-emerald-300'
+              }`}
+            >
+              {batchFeedback === 'duplicate'
+                ? 'This claim is already in the batch.'
+                : 'Added to batch.'}
+            </p>
+          )}
           <SubmissionStatusPanel
             state={onchain.state}
             onReset={onchain.reset}

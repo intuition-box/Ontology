@@ -4,7 +4,7 @@ import { conjugateForSelf, isSelfSubject } from '../lib/conjugate';
 import { SUBJECT_CLASSIFY_DEBOUNCE_MS } from '../lib/timings';
 import { useDebounce } from '../lib/use-debounce';
 import { ATOM_TYPES, ATOM_CATEGORIES, type AtomType, type AtomCategory } from '../data/atom-types';
-import { EXAMPLE_CLAIMS, type ExampleClaim } from '../data/example-claims';
+import { useLiveExamples, type ExampleClaim } from '../intuition/hooks/use-live-examples';
 import { TypeBadge } from './type-badge';
 
 /** Quick picks shown in the compact type selector */
@@ -28,6 +28,7 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
   });
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showAllTypes, setShowAllTypes] = useState(false);
+  const { examples: liveExamples } = useLiveExamples({ subjectTypeId: selectedType });
   const isSelf = isSelfSubject(selectedType);
 
   // Debounce typing before classifying so we don't thrash the picker state
@@ -135,31 +136,30 @@ export function SubjectInput({ value, onChange, selectedType, onTypeChange, onEx
         <AllTypePicker selectedType={selectedType} onSelect={handleTypeSelect} />
       )}
 
-      {/* Example claims for selected type, using the user's input as subject */}
-      {selectedType && EXAMPLE_CLAIMS[selectedType] && onExampleClick && value.trim() && (
+      {/* Examples for the selected type. The list is sourced from the
+          indexer first (real on-chain claims for that subject type)
+          and falls back to the curated static seed when no live
+          examples are available — see useLiveExamples. */}
+      {selectedType && liveExamples.length > 0 && onExampleClick && value.trim() && (
         <div className="space-y-1">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
             Examples
           </span>
-          {EXAMPLE_CLAIMS[selectedType].map((example, i) => {
-            const personalized: ExampleClaim = {
-              ...example,
-              subject: isSelf ? 'I' : value.trim(),
-            };
+          {liveExamples.map((example, i) => {
             const shownPredicate = isSelf
               ? conjugateForSelf(example.predicateId, example.predicateLabel)
               : example.predicateLabel;
             return (
               <button
-                key={i}
-                onClick={() => onExampleClick(personalized)}
+                key={`${example.subject}-${example.predicateId}-${example.object}-${i}`}
+                onClick={() => onExampleClick(example)}
                 className="focus-ring flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs text-left text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors"
               >
-                <span className="text-[var(--color-text)] truncate">{personalized.subject}</span>
+                <span className="text-[var(--color-text)] truncate">{example.subject}</span>
                 <span className="text-[var(--color-text-muted)]">—</span>
                 <span className="text-[var(--color-accent)]">{shownPredicate}</span>
                 <span className="text-[var(--color-text-muted)]">—</span>
-                <span className="text-[var(--color-text)]">{example.object}</span>
+                <span className="text-[var(--color-text)] truncate">{example.object}</span>
               </button>
             );
           })}

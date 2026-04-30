@@ -97,6 +97,26 @@ const LIST_TRIPLES_BY_PREDICATE = gql`
   }
 `;
 
+const LIST_TRIPLES_BY_SUBJECT_TYPE = gql`
+  query ListTriplesBySubjectType($subjectType: String!, $limit: Int!) {
+    triples(
+      where: { subject: { type: { _eq: $subjectType } } }
+      limit: $limit
+      order_by: { block_number: desc }
+    ) {
+      term_id
+      subject_id
+      predicate_id
+      object_id
+      created_at
+      creator_id
+      subject { term_id label type }
+      predicate { term_id label type }
+      object { term_id label type }
+    }
+  }
+`;
+
 const LIST_ATOMS = gql`
   query ListAtoms($limit: Int!, $offset: Int!) {
     atoms(limit: $limit, offset: $offset, order_by: { created_at: desc }) {
@@ -152,6 +172,9 @@ interface ListAtomsResponse {
   atoms: AtomRecord[];
 }
 interface ListRecentTriplesResponse {
+  triples: JoinedTripleRecord[];
+}
+interface ListTriplesBySubjectTypeResponse {
   triples: JoinedTripleRecord[];
 }
 
@@ -237,6 +260,23 @@ export class IndexerService {
     const data = await this.client.request<ListRecentTriplesResponse>(
       LIST_RECENT_TRIPLES,
       { limit: args.limit, offset: args.offset ?? 0 }
+    );
+    return data.triples;
+  }
+
+  /**
+   * Lists recent triples whose subject atom is of the given type. Used
+   * to surface real on-chain claims as inspiration in the claim-builder
+   * subject input — replaces the curated `EXAMPLE_CLAIMS` static seed
+   * with whatever the network has actually published for that type.
+   */
+  async listTriplesBySubjectType(
+    subjectType: string,
+    limit: number
+  ): Promise<JoinedTripleRecord[]> {
+    const data = await this.client.request<ListTriplesBySubjectTypeResponse>(
+      LIST_TRIPLES_BY_SUBJECT_TYPE,
+      { subjectType, limit }
     );
     return data.triples;
   }

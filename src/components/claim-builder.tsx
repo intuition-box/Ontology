@@ -5,7 +5,7 @@ import { PredicateSelect } from './predicate-select';
 import { ObjectInput } from './object-input';
 import { ClaimPreview } from './claim-preview';
 import { PREDICATES } from '../data/predicates';
-import type { ExampleClaim } from '../data/example-claims';
+import type { ExampleClaim } from '../intuition/hooks/use-live-examples';
 import type { ClaimEntry } from '../types';
 import { useSubmitClaim, type SubmissionState } from '../intuition/hooks/use-submit-claim';
 

@@ -1,4 +1,4 @@
-import { defineChain, type Chain } from 'viem';
+import { defineChain } from 'viem';
 
 /**
  * Intuition L3 chain definitions.
@@ -14,10 +14,6 @@ import { defineChain, type Chain } from 'viem';
 
 export const INTUITION_MAINNET_CHAIN_ID = 1155;
 export const INTUITION_TESTNET_CHAIN_ID = 13579;
-
-export type IntuitionChainId =
-  | typeof INTUITION_MAINNET_CHAIN_ID
-  | typeof INTUITION_TESTNET_CHAIN_ID;
 
 const MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
 
@@ -60,16 +56,3 @@ export const intuitionTestnet = defineChain({
   testnet: true,
 });
 
-export const intuitionChains = [intuitionMainnet, intuitionTestnet] as const;
-
-export type IntuitionChain = typeof intuitionMainnet | typeof intuitionTestnet;
-
-/**
- * Returns the Intuition chain matching the given chain ID.
- *
- * Used by the wagmi config and any service that needs the active chain
- * metadata (explorer URL for tx links, native symbol for amounts, etc.).
- */
-export function getIntuitionChain(chainId: IntuitionChainId): Chain {
-  return chainId === INTUITION_MAINNET_CHAIN_ID ? intuitionMainnet : intuitionTestnet;
-}

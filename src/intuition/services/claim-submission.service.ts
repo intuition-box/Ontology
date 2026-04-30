@@ -48,8 +48,11 @@ export interface ClaimSubmissionResult {
   subjectAtomId: AtomId;
   predicateAtomId: AtomId;
   objectAtomId: AtomId;
+  /** `undefined` when no atom needed to be created on-chain. */
   atomTxHash: Hex | undefined;
-  tripleTxHash: Hex;
+  /** `undefined` when the triple was already on-chain and no
+   *  `createTriples` call was issued. */
+  tripleTxHash: Hex | undefined;
 }
 
 /**
@@ -166,10 +169,8 @@ export class ClaimSubmissionService {
     const tripleAlreadyExists =
       await this.multivaultRead.isTermCreated(tripleId);
 
-    let tripleTxHash: Hex;
-    if (tripleAlreadyExists) {
-      tripleTxHash = '0x' as Hex;
-    } else {
+    let tripleTxHash: Hex | undefined;
+    if (!tripleAlreadyExists) {
       onPhase?.({ status: 'creating-triple' });
       tripleTxHash = await this.multivaultWrite.createTriples({
         subjectIds: [subjectAtomId],
@@ -219,7 +220,9 @@ export class ClaimSubmissionService {
    *
    * Returns the per-draft results (each carrying the same `atomTxHash`
    * and `tripleTxHash`) so consumers can render success in their own
-   * order. Throws on any pinning, simulation, or send failure.
+   * order. `atomTxHash` is `undefined` when no atom needed creation;
+   * `tripleTxHash` is `undefined` when every triple already existed
+   * on-chain. Throws on any pinning, simulation, or send failure.
    */
   async submitBatch(args: {
     drafts: ClaimSubmissionDraft[];
@@ -228,10 +231,6 @@ export class ClaimSubmissionService {
   }): Promise<ClaimSubmissionResult[]> {
     const { drafts, context, onPhase } = args;
     if (drafts.length === 0) return [];
-    if (drafts.length === 1) {
-      const single = await this.submit({ draft: drafts[0]!, context, onPhase });
-      return [single];
-    }
 
     onPhase?.({ status: 'preparing' });
 
@@ -419,7 +418,7 @@ export class ClaimSubmissionService {
       predicateAtomId: predicateIds[i]!,
       objectAtomId: objectIds[i]!,
       atomTxHash,
-      tripleTxHash: tripleTxHash ?? ('0x' as Hex),
+      tripleTxHash,
     }));
   }
 }

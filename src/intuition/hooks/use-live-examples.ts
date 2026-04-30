@@ -72,27 +72,11 @@ export function useLiveExamples(
       });
       const examples: ExampleClaim[] = [];
       const seen = new Set<string>();
+      const maxExamples = args.limit ?? DEFAULT_EXAMPLES_RETURNED;
       for (const triple of triples) {
-        if (
-          triple.subject !== null &&
-          triple.subject !== undefined &&
-          triple.subject.type !== subjectTypeId
-        ) {
-          continue;
-        }
-        const subject = triple.subject;
-        const predicate = triple.predicate;
-        const object = triple.object;
-        if (
-          subject === null ||
-          subject === undefined ||
-          predicate === null ||
-          predicate === undefined ||
-          object === null ||
-          object === undefined
-        ) {
-          continue;
-        }
+        const { subject, predicate, object } = triple;
+        if (subject === null || predicate === null || object === null) continue;
+        if (subject.type !== subjectTypeId) continue;
         // Only surface examples whose predicate label maps to a known
         // static predicate — the form's validation rules and predicate
         // selector both key on the static predicate id.
@@ -100,23 +84,19 @@ export function useLiveExamples(
           (p) => p.label === predicate.label || p.id === predicate.label
         );
         if (staticPredicate === undefined) continue;
-        const subjectLabel = subject.label;
-        const objectLabel = object.label;
-        if (subjectLabel === '' || objectLabel === '') continue;
-        const key = `${subjectLabel}::${staticPredicate.id}::${objectLabel}`;
+        if (subject.label === '' || object.label === '') continue;
+        const key = `${subject.label}::${staticPredicate.id}::${object.label}`;
         if (seen.has(key)) continue;
         seen.add(key);
         examples.push({
-          subject: subjectLabel,
+          subject: subject.label,
           subjectType: subject.type,
           predicateId: staticPredicate.id,
           predicateLabel: staticPredicate.label,
-          object: objectLabel,
+          object: object.label,
           objectType: object.type,
         });
-        if (examples.length >= (args.limit ?? DEFAULT_EXAMPLES_RETURNED)) {
-          break;
-        }
+        if (examples.length >= maxExamples) break;
       }
       return examples;
     },

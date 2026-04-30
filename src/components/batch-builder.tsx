@@ -275,7 +275,7 @@ function BatchSubmissionStatus({
                 Atoms tx ↗ {truncateHash(state.atomTxHash)}
               </a>
             )}
-            {explorerBase !== undefined && (
+            {state.tripleTxHash !== undefined && explorerBase !== undefined && (
               <a
                 href={`${explorerBase}/tx/${state.tripleTxHash}`}
                 target="_blank"

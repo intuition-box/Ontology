@@ -64,17 +64,6 @@ export function asCurveId(value: bigint): CurveId {
 }
 
 /**
- * Exhaustiveness helper for switches on discriminated unions.
- *
- * Calling `assertNever(value)` in the default branch proves to TypeScript
- * that every case has been handled. Adding a new variant to the union
- * without a matching case becomes a compile-time error at the call site.
- */
-export function assertNever(value: never): never {
-  throw new Error(`Unreachable: ${JSON.stringify(value)}`);
-}
-
-/**
  * Per-session protocol constants read once from the MultiVault.
  *
  * Lives at the type-only layer so both the hook (which fetches via

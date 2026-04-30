@@ -116,11 +116,12 @@ function assertIpfsUri(uri: string | null | undefined): IpfsUri {
   return uri as IpfsUri;
 }
 
-// The indexer's Hasura request-transformation template references
-// every pin-mutation field; omitting any optional field triggers a
-// transformation error at the gateway. Coerce undefineds to empty
-// strings so the wire payload always carries the full shape.
-
+/**
+ * The indexer's Hasura request-transformation template references every
+ * pin-mutation field; omitting any optional field triggers a transformation
+ * error at the gateway. Each method below coerces undefined inputs to empty
+ * strings so the wire payload always carries the full shape.
+ */
 export class PinningService {
   private readonly client: GraphQLClient;
 

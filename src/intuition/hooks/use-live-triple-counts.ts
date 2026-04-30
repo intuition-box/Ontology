@@ -53,16 +53,10 @@ export function useLiveTripleCounts(
     }
     let total = 0;
     for (const triple of triples) {
-      if (
-        triple.subject === null ||
-        triple.subject === undefined ||
-        triple.object === null ||
-        triple.object === undefined
-      ) {
-        continue;
-      }
+      const { subject, object } = triple;
+      if (subject === null || object === null) continue;
       total += 1;
-      const key = keyOfTypePair(triple.subject.type, triple.object.type);
+      const key = keyOfTypePair(subject.type, object.type);
       byPair.set(key, (byPair.get(key) ?? 0) + 1);
     }
     return { total, byPair };

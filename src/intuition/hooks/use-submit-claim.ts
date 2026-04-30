@@ -36,7 +36,7 @@ export type SubmissionState =
       predicateAtomId: AtomId;
       objectAtomId: AtomId;
       atomTxHash: Hex | undefined;
-      tripleTxHash: Hex;
+      tripleTxHash: Hex | undefined;
     }
   | { status: 'error'; error: Error };
 

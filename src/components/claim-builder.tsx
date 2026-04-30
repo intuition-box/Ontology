@@ -322,7 +322,7 @@ function SubmissionStatusPanel({
                 Atom tx ↗ {truncateHash(state.atomTxHash)}
               </a>
             )}
-            {explorerBase && (
+            {state.tripleTxHash && explorerBase && (
               <a
                 href={`${explorerBase}/tx/${state.tripleTxHash}`}
                 target="_blank"

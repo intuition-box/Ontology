@@ -5,7 +5,7 @@ import { PredicateSelect } from './predicate-select';
 import { ObjectInput } from './object-input';
 import { ClaimPreview } from './claim-preview';
 import { PREDICATES } from '../data/predicates';
-import type { ExampleClaim } from '../data/example-claims';
+import type { ExampleClaim } from '../intuition/hooks/use-live-examples';
 import type { ClaimEntry } from '../types';
 import { useSubmitClaim, type SubmissionState } from '../intuition/hooks/use-submit-claim';
 
@@ -21,11 +21,19 @@ interface ClaimBuilderProps {
   onSubjectValueChange?: (value: string) => void;
   onPredicateChange?: (predicateId: string | null) => void;
   onSave?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => void;
-  onAddToBatch?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => void;
+  /** Returns false when the entry was rejected as a duplicate of an
+   *  already-queued claim (same subject+predicate+object) so the
+   *  builder can surface a brief feedback to the user. */
+  onAddToBatch?: (claim: Omit<ClaimEntry, 'id' | 'timestamp'>) => boolean;
+  /** Called from the post-submission status panel when the user wants
+   *  the freshly-published claim's subject focused in the live graph
+   *  below. The page is responsible for scrolling the graph into view
+   *  in addition to setting the selection. */
+  onFocusOnGraph?: (atomId: string) => void;
 }
 
 export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
-  function ClaimBuilder({ onSubjectTypeChange, onSubjectValueChange, onPredicateChange, onSave, onAddToBatch }, ref) {
+  function ClaimBuilder({ onSubjectTypeChange, onSubjectValueChange, onPredicateChange, onSave, onAddToBatch, onFocusOnGraph }, ref) {
     const [subject, setSubject] = useState('');
     const [subjectType, setSubjectType] = useState<string | null>(null);
     const [predicateId, setPredicateId] = useState<string | null>(null);
@@ -120,9 +128,13 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
       if (claim) onSave?.(claim);
     }, [buildClaim, onSave]);
 
+    const [batchFeedback, setBatchFeedback] = useState<'added' | 'duplicate' | null>(null);
     const handleAddToBatch = useCallback(() => {
       const claim = buildClaim();
-      if (claim) onAddToBatch?.(claim);
+      if (claim === null || onAddToBatch === undefined) return;
+      const wasAdded = onAddToBatch(claim);
+      setBatchFeedback(wasAdded ? 'added' : 'duplicate');
+      window.setTimeout(() => setBatchFeedback(null), 1800);
     }, [buildClaim, onAddToBatch]);
 
     const { isConnected } = useAccount();
@@ -149,6 +161,22 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
       : !onchain.isReady
         ? 'Loading Intuition session…'
         : undefined;
+
+    // Clear the form once a submission confirms onchain — the
+    // SubmissionStatusPanel below keeps the success message + tx
+    // links + 'See on the graph' affordance, so the user has the
+    // proof they need without the now-redundant claim preview lingering
+    // and hinting at a duplicate publish.
+    useEffect(() => {
+      if (onchain.state.status !== 'confirmed') return;
+      setSubject('');
+      setSubjectType(null);
+      setPredicateId(null);
+      setObject('');
+      setObjectType(null);
+      onSubjectTypeChange?.(null);
+      onPredicateChange?.(null);
+    }, [onchain.state.status, onSubjectTypeChange, onPredicateChange]);
 
     const handleExampleClick = useCallback((example: ExampleClaim) => {
       setSubject(example.subject);
@@ -204,7 +232,25 @@ export const ClaimBuilder = forwardRef<ClaimBuilderHandle, ClaimBuilderProps>(
             canPublish={onchain.isReady}
             publishHint={publishHint}
           />
-          <SubmissionStatusPanel state={onchain.state} onReset={onchain.reset} />
+          {batchFeedback !== null && (
+            <p
+              role="status"
+              className={`mt-2 text-xs ${
+                batchFeedback === 'duplicate'
+                  ? 'text-amber-300'
+                  : 'text-emerald-300'
+              }`}
+            >
+              {batchFeedback === 'duplicate'
+                ? 'This claim is already in the batch.'
+                : 'Added to batch.'}
+            </p>
+          )}
+          <SubmissionStatusPanel
+            state={onchain.state}
+            onReset={onchain.reset}
+            onFocusOnGraph={onFocusOnGraph}
+          />
         </div>
       </div>
     );
@@ -223,9 +269,11 @@ const STATUS_LABELS: Record<SubmissionState['status'], string> = {
 function SubmissionStatusPanel({
   state,
   onReset,
+  onFocusOnGraph,
 }: {
   state: SubmissionState;
   onReset: () => void;
+  onFocusOnGraph?: (atomId: string) => void;
 }) {
   if (state.status === 'idle') return null;
 
@@ -262,28 +310,41 @@ function SubmissionStatusPanel({
       </div>
 
       {state.status === 'confirmed' && (
-        <div className="mt-2 space-y-1 font-mono text-xs">
-          {state.atomTxHash && explorerBase && (
-            <a
-              href={`${explorerBase}/tx/${state.atomTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
-            >
-              Atom tx ↗ {truncateHash(state.atomTxHash)}
-            </a>
+        <>
+          <div className="mt-2 space-y-1 font-mono text-xs">
+            {state.atomTxHash && explorerBase && (
+              <a
+                href={`${explorerBase}/tx/${state.atomTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
+              >
+                Atom tx ↗ {truncateHash(state.atomTxHash)}
+              </a>
+            )}
+            {state.tripleTxHash && explorerBase && (
+              <a
+                href={`${explorerBase}/tx/${state.tripleTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
+              >
+                Triple tx ↗ {truncateHash(state.tripleTxHash)}
+              </a>
+            )}
+          </div>
+          {onFocusOnGraph !== undefined && (
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => onFocusOnGraph(state.subjectAtomId)}
+                className="focus-ring rounded-md border border-emerald-400/40 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-400/20 transition-colors"
+              >
+                See on the graph ↓
+              </button>
+            </div>
           )}
-          {explorerBase && (
-            <a
-              href={`${explorerBase}/tx/${state.tripleTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
-            >
-              Triple tx ↗ {truncateHash(state.tripleTxHash)}
-            </a>
-          )}
-        </div>
+        </>
       )}
 
       {state.status === 'error' && (

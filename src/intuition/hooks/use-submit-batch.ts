@@ -36,7 +36,7 @@ export type BatchSubmissionState =
       status: 'confirmed';
       results: ClaimSubmissionResult[];
       atomTxHash: Hex | undefined;
-      tripleTxHash: Hex;
+      tripleTxHash: Hex | undefined;
     }
   | { status: 'error'; error: Error };
 
@@ -111,8 +111,6 @@ export function useSubmitBatch(): UseSubmitBatchReturn {
       if (drafts.length === 0) return;
 
       try {
-        let lastAtomTxHash: Hex | undefined;
-        let lastTripleTxHash: Hex | undefined;
         const results = await services.claimSubmission.submitBatch({
           drafts,
           context: {
@@ -123,23 +121,16 @@ export function useSubmitBatch(): UseSubmitBatchReturn {
           },
           onPhase: (phase: ClaimSubmissionPhase) => setState(phase),
         });
-        // Every result in a batch shares the same tx hashes; pull them
-        // from the first entry for the confirmed state. (`atomTxHash`
-        // is `undefined` when no atom needed creation.)
-        if (results.length > 0) {
-          lastAtomTxHash = results[0]!.atomTxHash;
-          lastTripleTxHash = results[0]!.tripleTxHash;
-        }
-        if (lastTripleTxHash === undefined) {
-          // Should not happen; submitBatch always issues createTriples
-          // when drafts.length > 0. Defensive guard.
-          throw new Error('Batch submission produced no triple tx hash');
-        }
+        // Every result in a batch shares the same pair of tx hashes;
+        // pull them from the first entry. Both can be `undefined`:
+        // `atomTxHash` when no atom needed creation, `tripleTxHash`
+        // when every triple already existed on-chain.
+        const first = results[0];
         setState({
           status: 'confirmed',
           results,
-          atomTxHash: lastAtomTxHash,
-          tripleTxHash: lastTripleTxHash,
+          atomTxHash: first?.atomTxHash,
+          tripleTxHash: first?.tripleTxHash,
         });
         // Refresh every live query (atoms, triples, positions...) so the
         // graph and tree views pick up the freshly-published claims

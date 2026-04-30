@@ -43,8 +43,16 @@ export type ClaimSubmissionPhase =
 
 export interface ClaimSubmissionResult {
   tripleId: TripleId;
+  /** Subject atom ID — surfaced so consumers can drive a graph
+   *  selection / pivot once the claim confirms. */
+  subjectAtomId: AtomId;
+  predicateAtomId: AtomId;
+  objectAtomId: AtomId;
+  /** `undefined` when no atom needed to be created on-chain. */
   atomTxHash: Hex | undefined;
-  tripleTxHash: Hex;
+  /** `undefined` when the triple was already on-chain and no
+   *  `createTriples` call was issued. */
+  tripleTxHash: Hex | undefined;
 }
 
 /**
@@ -150,26 +158,39 @@ export class ClaimSubmissionService {
       });
     }
 
-    // 6. Create the triple.
-    onPhase?.({ status: 'creating-triple' });
-    const tripleTxHash = await this.multivaultWrite.createTriples({
-      subjectIds: [subjectAtomId],
-      predicateIds: [predicateAtomId],
-      objectIds: [objectAtomId],
-      assets: [context.session.tripleCost],
-      value: context.session.tripleCost,
-      account: context.account,
-      chain: context.chain,
-    });
-
-    // 7. Compute the triple ID for downstream display / history.
+    // 6. Compute the triple ID and check existence so we don't try to
+    //    re-create a triple that already lives on-chain (a revert here
+    //    surfaces in MetaMask as 'unknown gas fees' before signing).
     const tripleId = await this.multivaultRead.calculateTripleId(
       subjectAtomId,
       predicateAtomId,
       objectAtomId
     );
+    const tripleAlreadyExists =
+      await this.multivaultRead.isTermCreated(tripleId);
 
-    return { tripleId, atomTxHash, tripleTxHash };
+    let tripleTxHash: Hex | undefined;
+    if (!tripleAlreadyExists) {
+      onPhase?.({ status: 'creating-triple' });
+      tripleTxHash = await this.multivaultWrite.createTriples({
+        subjectIds: [subjectAtomId],
+        predicateIds: [predicateAtomId],
+        objectIds: [objectAtomId],
+        assets: [context.session.tripleCost],
+        value: context.session.tripleCost,
+        account: context.account,
+        chain: context.chain,
+      });
+    }
+
+    return {
+      tripleId,
+      subjectAtomId,
+      predicateAtomId,
+      objectAtomId,
+      atomTxHash,
+      tripleTxHash,
+    };
   }
 
   private async materializeAtomUri(
@@ -199,7 +220,9 @@ export class ClaimSubmissionService {
    *
    * Returns the per-draft results (each carrying the same `atomTxHash`
    * and `tripleTxHash`) so consumers can render success in their own
-   * order. Throws on any pinning, simulation, or send failure.
+   * order. `atomTxHash` is `undefined` when no atom needed creation;
+   * `tripleTxHash` is `undefined` when every triple already existed
+   * on-chain. Throws on any pinning, simulation, or send failure.
    */
   async submitBatch(args: {
     drafts: ClaimSubmissionDraft[];
@@ -208,10 +231,6 @@ export class ClaimSubmissionService {
   }): Promise<ClaimSubmissionResult[]> {
     const { drafts, context, onPhase } = args;
     if (drafts.length === 0) return [];
-    if (drafts.length === 1) {
-      const single = await this.submit({ draft: drafts[0]!, context, onPhase });
-      return [single];
-    }
 
     onPhase?.({ status: 'preparing' });
 
@@ -347,21 +366,11 @@ export class ClaimSubmissionService {
       objectIds.push(obj.atomId);
     }
 
-    // 9. ONE createTriples tx for the whole batch.
-    onPhase?.({ status: 'creating-triple' });
-    const tripleAssets = drafts.map(() => context.session.tripleCost);
-    const tripleValue = context.session.tripleCost * BigInt(drafts.length);
-    const tripleTxHash = await this.multivaultWrite.createTriples({
-      subjectIds,
-      predicateIds,
-      objectIds,
-      assets: tripleAssets,
-      value: tripleValue,
-      account: context.account,
-      chain: context.chain,
-    });
-
-    // 10. Compute triple IDs in parallel for the per-draft result list.
+    // 9. Compute every triple ID up-front, then existence-check them
+    //    in parallel. createTriples reverts with MultiVault_TripleExists
+    //    if any element is already onchain — which manifests as
+    //    'unknown gas fees' in MetaMask because gas estimation fails.
+    //    Filter those out so the batch only contains brand-new triples.
     const tripleIds = await Promise.all(
       drafts.map((_, i) =>
         this.multivaultRead.calculateTripleId(
@@ -371,9 +380,43 @@ export class ClaimSubmissionService {
         )
       )
     );
+    const tripleExistsFlags = await Promise.all(
+      tripleIds.map((id) => this.multivaultRead.isTermCreated(id))
+    );
+    const newTripleIndices: number[] = [];
+    for (let i = 0; i < drafts.length; i += 1) {
+      if (!tripleExistsFlags[i]) newTripleIndices.push(i);
+    }
+
+    // 10. ONE createTriples tx for the brand-new triples in the batch
+    //     (no-op when the entire batch is duplicates of pre-existing
+    //     triples — the per-draft result still surfaces the existing
+    //     tripleId so the UI can navigate to the on-chain row).
+    let tripleTxHash: Hex | undefined;
+    if (newTripleIndices.length > 0) {
+      onPhase?.({ status: 'creating-triple' });
+      const newSubjectIds = newTripleIndices.map((i) => subjectIds[i]!);
+      const newPredicateIds = newTripleIndices.map((i) => predicateIds[i]!);
+      const newObjectIds = newTripleIndices.map((i) => objectIds[i]!);
+      const newAssets = newTripleIndices.map(() => context.session.tripleCost);
+      const newValue =
+        context.session.tripleCost * BigInt(newTripleIndices.length);
+      tripleTxHash = await this.multivaultWrite.createTriples({
+        subjectIds: newSubjectIds,
+        predicateIds: newPredicateIds,
+        objectIds: newObjectIds,
+        assets: newAssets,
+        value: newValue,
+        account: context.account,
+        chain: context.chain,
+      });
+    }
 
     return drafts.map((_, i) => ({
       tripleId: tripleIds[i]!,
+      subjectAtomId: subjectIds[i]!,
+      predicateAtomId: predicateIds[i]!,
+      objectAtomId: objectIds[i]!,
       atomTxHash,
       tripleTxHash,
     }));

@@ -95,9 +95,3 @@ export const multivaultWriteAbi = parseAbi([
   // Atom wallet
   'function claimAtomWalletDepositFees(bytes32 atomId)',
 ]);
-
-/**
- * Merged ABI for callers that need both reads and writes against the same
- * contract instance. Prefer the split exports when only one direction is used.
- */
-export const multivaultAbi = [...multivaultReadAbi, ...multivaultWriteAbi] as const;

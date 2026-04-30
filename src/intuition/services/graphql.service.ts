@@ -73,30 +73,6 @@ const FIND_PREDICATE_ATOMS_BY_LABEL = gql`
   }
 `;
 
-const GET_ATOM_BY_TERM_ID = gql`
-  query GetAtomByTermId($termId: String!) {
-    atoms(where: { term_id: { _eq: $termId } }, limit: 1) {
-      term_id
-      label
-      type
-    }
-  }
-`;
-
-const LIST_TRIPLES_BY_PREDICATE = gql`
-  query ListTriplesByPredicate($predicateId: String!, $limit: Int!) {
-    triples(
-      where: { predicate_id: { _eq: $predicateId } }
-      limit: $limit
-    ) {
-      term_id
-      subject_id
-      predicate_id
-      object_id
-    }
-  }
-`;
-
 const LIST_ATOMS = gql`
   query ListAtoms($limit: Int!, $offset: Int!) {
     atoms(limit: $limit, offset: $offset, order_by: { created_at: desc }) {
@@ -142,12 +118,6 @@ const LIST_RECENT_TRIPLES = gql`
 interface FindPredicateAtomsByLabelResponse {
   atoms: PredicateAtomCandidate[];
 }
-interface GetAtomByTermIdResponse {
-  atoms: AtomRecord[];
-}
-interface ListTriplesByPredicateResponse {
-  triples: TripleRecord[];
-}
 interface ListAtomsResponse {
   atoms: AtomRecord[];
 }
@@ -163,20 +133,6 @@ export class IndexerService {
   }
 
   /**
-   * Returns predicate-atom candidates matching the given label, ordered
-   * by usage count (most-used first). Raw access — callers should
-   * normally route through `resolveCanonicalPredicateByLabel` to enforce
-   * the no-TextObject rule.
-   */
-  async findPredicateAtomsByLabel(label: string): Promise<PredicateAtomCandidate[]> {
-    const data = await this.client.request<FindPredicateAtomsByLabelResponse>(
-      FIND_PREDICATE_ATOMS_BY_LABEL,
-      { label }
-    );
-    return data.atoms;
-  }
-
-  /**
    * Resolves the canonical predicate atom for a label. Skips legacy
    * `TextObject` candidates — when only those exist the orchestrator
    * pins a structured replacement and uses the new atom going forward.
@@ -184,31 +140,11 @@ export class IndexerService {
   async resolveCanonicalPredicateByLabel(
     label: string
   ): Promise<PredicateAtomCandidate | null> {
-    const candidates = await this.findPredicateAtomsByLabel(label);
-    return candidates.find((c) => c.type !== 'TextObject') ?? null;
-  }
-
-  async getAtomByTermId(termId: Bytes32): Promise<AtomRecord | null> {
-    const data = await this.client.request<GetAtomByTermIdResponse>(
-      GET_ATOM_BY_TERM_ID,
-      { termId }
+    const data = await this.client.request<FindPredicateAtomsByLabelResponse>(
+      FIND_PREDICATE_ATOMS_BY_LABEL,
+      { label }
     );
-    return data.atoms[0] ?? null;
-  }
-
-  /**
-   * Lists triples having the given predicate atom, capped at `limit`.
-   * Pagination is the caller's responsibility.
-   */
-  async listTriplesByPredicate(
-    predicateId: Bytes32,
-    limit: number
-  ): Promise<TripleRecord[]> {
-    const data = await this.client.request<ListTriplesByPredicateResponse>(
-      LIST_TRIPLES_BY_PREDICATE,
-      { predicateId, limit }
-    );
-    return data.triples;
+    return data.atoms.find((c) => c.type !== 'TextObject') ?? null;
   }
 
   /**

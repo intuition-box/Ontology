@@ -102,7 +102,7 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
   // activity differently from purely-schema edges. Falls back gracefully
   // when the indexer is empty or unreachable — the graph still renders
   // its static schema view.
-  const liveTriplesQuery = useLiveTriples({ limit: 200 });
+  const liveTriplesQuery = useLiveTriples({ limit: 5000 });
   const liveCountsByTypePair = useMemo(() => {
     const map = new Map<string, number>();
     const triples = liveTriplesQuery.data;
@@ -124,7 +124,6 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
     }
     return map;
   }, [liveTriplesQuery.data]);
-  const liveTriplesCount = liveTriplesQuery.data?.length ?? 0;
 
   // Auto-reset when selection is cleared externally (e.g., Entity Hierarchy Reset)
   useEffect(() => {
@@ -512,7 +511,6 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold text-[var(--color-text)]">Entity Relationship</h2>
-              <LiveStatusPill query={liveTriplesQuery} count={liveTriplesCount} />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {(hasInteracted || highlightTypeId) && (
@@ -559,43 +557,6 @@ export function RelationshipGraph({ highlightTypeId, onSelectType, searchQuery }
  * indexer — switches between loading / error / count / empty without
  * blocking the schema graph behind it.
  */
-function LiveStatusPill({
-  query,
-  count,
-}: {
-  query: ReturnType<typeof useLiveTriples>;
-  count: number;
-}) {
-  if (query.isLoading) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
-        Loading
-      </span>
-    );
-  }
-  if (query.error !== null && query.error !== undefined) {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
-        title={query.error.message}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
-        Indexer error
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]"
-      title={`${count} triples indexed onchain`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
-      {count} onchain
-    </span>
-  );
-}
-
 // ─── Icons ──────────────────────────────────────────────────
 
 function FullscreenIcon() {

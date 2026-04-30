@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ClaimBuilder } from '../components/claim-builder';
 import { SchemaPanel } from '../components/schema-panel';
 import { AtomTree } from '../components/atom-tree';
@@ -29,6 +29,15 @@ export function HomePage() {
   const [selectedLiveAtomId, setSelectedLiveAtomId] = useState<string | null>(
     null
   );
+  const liveGraphSectionRef = useRef<HTMLDivElement>(null);
+
+  const handleFocusOnGraph = useCallback((atomId: string) => {
+    setSelectedLiveAtomId(atomId);
+    liveGraphSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
 
   return (
     <main className="px-4 sm:px-6 py-8 space-y-8">
@@ -39,9 +48,13 @@ export function HomePage() {
           onPredicateChange={setSelectedPredicateId}
           onSave={saveClaim}
           onAddToBatch={addToBatch}
+          onFocusOnGraph={handleFocusOnGraph}
         />
         <ClaimHistory searchQuery={searchQuery} />
-        <BatchBuilder searchQuery={searchQuery} />
+        <BatchBuilder
+          searchQuery={searchQuery}
+          onFocusOnGraph={handleFocusOnGraph}
+        />
       </div>
 
       <div
@@ -61,7 +74,10 @@ export function HomePage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <div
+        ref={liveGraphSectionRef}
+        className="grid grid-cols-1 gap-2 lg:grid-cols-3 scroll-mt-6"
+      >
         <div className="lg:col-span-2 h-full">
           <LiveInstanceGraph
             selectedAtomId={selectedLiveAtomId}

@@ -154,7 +154,7 @@ export function LiveInstanceGraph({
   const onSelectAtomRef = useRef(onSelectAtom);
   onSelectAtomRef.current = onSelectAtom;
 
-  const liveTriplesQuery = useLiveTriples({ limit: 100 });
+  const liveTriplesQuery = useLiveTriples({ limit: 5000 });
   const { nodes, links } = useMemo(() => {
     const triples = liveTriplesQuery.data;
     if (triples === undefined) return { nodes: [], links: [] };
@@ -200,6 +200,15 @@ export function LiveInstanceGraph({
       ? window.innerHeight - 160
       : container.clientHeight || 480;
 
+    // Capture the pan/zoom transform before wiping so we can restore
+    // it after the SVG is rebuilt — without this, every data refetch
+    // resets the camera and any programmatic focus (e.g., from
+    // 'See on the graph') gets blown away after a couple of seconds.
+    const previousTransform =
+      zoomRef.current !== null
+        ? d3.zoomTransform(svgRef.current)
+        : null;
+
     d3.select(svgRef.current).selectAll('*').remove();
 
     const svg = d3
@@ -230,6 +239,11 @@ export function LiveInstanceGraph({
 
     svg.call(zoom);
     zoomRef.current = zoom;
+    // Restore the pre-rebuild transform so the camera doesn't snap
+    // back to the default origin on every data refresh.
+    if (previousTransform !== null) {
+      svg.call(zoom.transform, previousTransform);
+    }
 
     const simulation = d3
       .forceSimulation<AtomNode>(nodes)
@@ -242,7 +256,18 @@ export function LiveInstanceGraph({
       )
       .force('charge', d3.forceManyBody().strength(-200))
       .force('center', d3.forceCenter(0, 0))
-      .force('collide', d3.forceCollide(28));
+      .force('collide', d3.forceCollide(28))
+      // Pre-warm the simulation so nodes land at their converged
+      // coordinates before the first DOM render. Without this, every
+      // data refetch produces a few seconds of visible "collision dance"
+      // as the layout settles. Running ~300 ticks in memory matches
+      // the default alphaDecay (0.0228) bringing alpha below 0.001
+      // — i.e., the same end state D3 would reach after ~5s of animated
+      // ticking, but instantaneous from the user's perspective.
+      .stop();
+    for (let i = 0; i < 300; i++) {
+      simulation.tick();
+    }
 
     const link = g
       .append('g')
@@ -346,14 +371,25 @@ export function LiveInstanceGraph({
         link.attr('stroke-opacity', 0.45);
       });
 
-    simulation.on('tick', () => {
+    // Tick handler: positions DOM elements to match simulation state.
+    // Extracted so we can call it once manually after pre-warm to draw
+    // the converged layout, then leave the simulation stopped.
+    const applyPositions = (): void => {
       link
         .attr('x1', (d) => (isLive(d) ? d.source.x ?? 0 : 0))
         .attr('y1', (d) => (isLive(d) ? d.source.y ?? 0 : 0))
         .attr('x2', (d) => (isLive(d) ? d.target.x ?? 0 : 0))
         .attr('y2', (d) => (isLive(d) ? d.target.y ?? 0 : 0));
       node.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
-    });
+    };
+    simulation.on('tick', applyPositions);
+    // Apply once now so the DOM reflects the pre-warmed coordinates.
+    // Subsequent drag interactions re-energize the sim via
+    // alphaTarget(0.3).restart() in the drag handlers, which resumes
+    // the timer + applyPositions until the alpha decays back to
+    // alphaMin and the sim auto-stops. The result: a graph that's
+    // perfectly still by default but reactive to direct manipulation.
+    applyPositions();
 
     nodeSelRef.current = node;
     linkSelRef.current = link;
@@ -412,12 +448,28 @@ export function LiveInstanceGraph({
   // — drives the click-from-recent-claims pivot UX. Reads node
   // positions from a ref since they're mutated by the simulation tick
   // and we don't want this effect to retrigger on every tick.
+  //
+  // The effect also fires when `nodes` change so a "See on graph"
+  // pivot triggered immediately after a fresh submission can land
+  // once the indexer catches up and the new node enters the dataset.
+  // `lastZoomedRef` ensures we don't re-zoom on every node-array
+  // refresh once the focus has already been applied.
   const nodesRef = useRef<AtomNode[]>(nodes);
+  const lastZoomedRef = useRef<string | null>(null);
   useEffect(() => {
     nodesRef.current = nodes;
   });
   useEffect(() => {
-    if (selectedAtomId === null || selectedAtomId === undefined) return;
+    if (selectedAtomId === null || selectedAtomId === undefined) {
+      lastZoomedRef.current = null;
+      return;
+    }
+    // Wait for the target to be present in the current nodes array.
+    // Every nodes change while a selection is active re-applies the
+    // zoom — that way the camera stays glued to the selected atom
+    // even when the simulation rebuilds with slightly shifted
+    // coordinates after a data refetch. The user can release the
+    // lock by clicking the same atom again (toggles selection off).
     const target = nodesRef.current.find((n) => n.id === selectedAtomId);
     if (
       target === undefined ||
@@ -431,12 +483,22 @@ export function LiveInstanceGraph({
     const transform = d3.zoomIdentity
       .scale(focusScale)
       .translate(-target.x, -target.y);
-    d3.select(svgRef.current)
-      .transition()
-      .duration(D3_RESET_DURATION_MS)
-      .call(zoomRef.current.transform, transform);
-    setHasInteracted(true);
-  }, [selectedAtomId]);
+    // First focus uses an animated transition so the user sees the
+    // camera move; subsequent re-applies (data refresh) snap silently
+    // to the new converged coordinates so there's no visible jolt.
+    const isFirstFocus = lastZoomedRef.current !== selectedAtomId;
+    const sel = d3.select(svgRef.current);
+    if (isFirstFocus) {
+      sel
+        .transition()
+        .duration(D3_RESET_DURATION_MS)
+        .call(zoomRef.current.transform, transform);
+      setHasInteracted(true);
+    } else {
+      sel.call(zoomRef.current.transform, transform);
+    }
+    lastZoomedRef.current = selectedAtomId;
+  }, [selectedAtomId, nodes]);
 
   const status = liveTriplesQuery.isLoading
     ? 'loading'
@@ -461,12 +523,6 @@ export function LiveInstanceGraph({
               <h2 className="text-lg font-semibold text-[var(--color-text)]">
                 Live Knowledge Graph
               </h2>
-              <StatusBadge
-                status={status}
-                count={nodes.length}
-                edgeCount={links.length}
-                error={liveTriplesQuery.error}
-              />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {hasInteracted && (
@@ -516,47 +572,6 @@ export function LiveInstanceGraph({
         style={{ opacity: 0 }}
       />
     </div>
-  );
-}
-
-function StatusBadge({
-  status,
-  count,
-  edgeCount,
-  error,
-}: {
-  status: 'loading' | 'error' | 'empty' | 'ready';
-  count: number;
-  edgeCount: number;
-  error: Error | null;
-}) {
-  if (status === 'loading') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
-        Loading
-      </span>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
-        title={error?.message ?? 'unknown error'}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
-        Indexer error
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]"
-      title={`${count} atoms, ${edgeCount} triples`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
-      {count} atoms · {edgeCount} triples
-    </span>
   );
 }
 

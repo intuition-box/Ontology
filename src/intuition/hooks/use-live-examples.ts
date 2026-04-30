@@ -21,7 +21,7 @@ export interface ExampleClaim {
   objectType: string;
 }
 
-const DEFAULT_INDEXER_LIMIT = 20;
+const DEFAULT_INDEXER_LIMIT = 100;
 const DEFAULT_EXAMPLES_RETURNED = 3;
 
 export interface UseLiveExamplesArgs {
@@ -62,20 +62,34 @@ export function useLiveExamples(
     enabled,
     staleTime: args.staleTime ?? 60_000,
     queryFn: async () => {
-      const triples = await indexer.listTriplesBySubjectType(
-        subjectTypeId,
-        DEFAULT_INDEXER_LIMIT
-      );
+      // Fetch a wider window of recent triples and filter client-side
+      // by subject type. The Hasura nested filter on the `atom_type`
+      // scalar is unreliable across indexer versions, so this avoids
+      // an empty-result trap that would silently force the static
+      // fallback even when matching live data exists.
+      const triples = await indexer.listRecentTriples({
+        limit: DEFAULT_INDEXER_LIMIT,
+      });
       const examples: ExampleClaim[] = [];
       const seen = new Set<string>();
       for (const triple of triples) {
         if (
-          triple.subject === null ||
-          triple.subject === undefined ||
-          triple.predicate === null ||
-          triple.predicate === undefined ||
-          triple.object === null ||
-          triple.object === undefined
+          triple.subject !== null &&
+          triple.subject !== undefined &&
+          triple.subject.type !== subjectTypeId
+        ) {
+          continue;
+        }
+        const subject = triple.subject;
+        const predicate = triple.predicate;
+        const object = triple.object;
+        if (
+          subject === null ||
+          subject === undefined ||
+          predicate === null ||
+          predicate === undefined ||
+          object === null ||
+          object === undefined
         ) {
           continue;
         }
@@ -83,24 +97,22 @@ export function useLiveExamples(
         // static predicate — the form's validation rules and predicate
         // selector both key on the static predicate id.
         const staticPredicate = PREDICATES.find(
-          (p) =>
-            p.label === triple.predicate.label ||
-            p.id === triple.predicate.label
+          (p) => p.label === predicate.label || p.id === predicate.label
         );
         if (staticPredicate === undefined) continue;
-        const subjectLabel = triple.subject.label;
-        const objectLabel = triple.object.label;
+        const subjectLabel = subject.label;
+        const objectLabel = object.label;
         if (subjectLabel === '' || objectLabel === '') continue;
         const key = `${subjectLabel}::${staticPredicate.id}::${objectLabel}`;
         if (seen.has(key)) continue;
         seen.add(key);
         examples.push({
           subject: subjectLabel,
-          subjectType: triple.subject.type,
+          subjectType: subject.type,
           predicateId: staticPredicate.id,
           predicateLabel: staticPredicate.label,
           object: objectLabel,
-          objectType: triple.object.type,
+          objectType: object.type,
         });
         if (examples.length >= (args.limit ?? DEFAULT_EXAMPLES_RETURNED)) {
           break;

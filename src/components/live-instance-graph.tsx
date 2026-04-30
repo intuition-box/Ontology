@@ -253,7 +253,7 @@ export function LiveInstanceGraph({
       .attr('stroke-width', 1)
       .attr('stroke-opacity', 0.45)
       .attr('marker-end', 'url(#live-arrowhead)')
-      .attr('data-edge-id', (d, i) => `edge-${i}`)
+      .attr('data-edge-id', (_, i) => `edge-${i}`)
       .style('cursor', 'pointer')
       .on('mouseenter', (event: MouseEvent, d) => {
         const tooltip = tooltipRef.current;
@@ -406,6 +406,37 @@ export function LiveInstanceGraph({
       return srcId === selectedAtomId || tgtId === selectedAtomId ? 0.9 : 0.05;
     });
   }, [selectedAtomId, links]);
+
+  // Recenter the camera on the selected atom whenever the selection
+  // changes so the highlighted node lands at the middle of the canvas
+  // — drives the click-from-recent-claims pivot UX. Reads node
+  // positions from a ref since they're mutated by the simulation tick
+  // and we don't want this effect to retrigger on every tick.
+  const nodesRef = useRef<AtomNode[]>(nodes);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  });
+  useEffect(() => {
+    if (selectedAtomId === null || selectedAtomId === undefined) return;
+    const target = nodesRef.current.find((n) => n.id === selectedAtomId);
+    if (
+      target === undefined ||
+      target.x === undefined ||
+      target.y === undefined
+    ) {
+      return;
+    }
+    if (svgRef.current === null || zoomRef.current === null) return;
+    const focusScale = 1.6;
+    const transform = d3.zoomIdentity
+      .scale(focusScale)
+      .translate(-target.x, -target.y);
+    d3.select(svgRef.current)
+      .transition()
+      .duration(D3_RESET_DURATION_MS)
+      .call(zoomRef.current.transform, transform);
+    setHasInteracted(true);
+  }, [selectedAtomId]);
 
   const status = liveTriplesQuery.isLoading
     ? 'loading'

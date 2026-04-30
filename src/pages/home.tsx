@@ -7,6 +7,7 @@ import { ClaimHistory } from '../components/claim-history';
 import { BatchBuilder } from '../components/batch-builder';
 import { OnchainFeed } from '../components/onchain-feed';
 import { useClaimWorkspace } from '../lib/use-claim-workspace';
+import { useSubmitClaim } from '../hooks/use-submit-claim';
 
 export function HomePage() {
   const {
@@ -21,6 +22,14 @@ export function HomePage() {
     fillFromMatrix,
   } = useClaimWorkspace();
 
+  const {
+    submitClaim,
+    canSubmit,
+    status,
+    error: onchainError,
+    txHash,
+  } = useSubmitClaim();
+
   return (
     <main className="px-4 sm:px-6 py-8 space-y-8">
       <div className="space-y-3" data-tutorial-step="claim-builder">
@@ -30,6 +39,11 @@ export function HomePage() {
           onPredicateChange={setSelectedPredicateId}
           onSave={saveClaim}
           onAddToBatch={addToBatch}
+          onSubmitOnchain={submitClaim}
+          onchainStatus={status}
+          onchainError={onchainError}
+          onchainTxHash={txHash}
+          canSubmitOnchain={canSubmit}
         />
         <ClaimHistory searchQuery={searchQuery} />
         <BatchBuilder searchQuery={searchQuery} />

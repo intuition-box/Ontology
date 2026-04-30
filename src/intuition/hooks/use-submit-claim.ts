@@ -14,7 +14,7 @@ import type {
   ClaimSubmissionDraft,
   ClaimSubmissionPhase,
 } from '../services/claim-submission.service';
-import type { TripleId } from '../types';
+import type { AtomId, TripleId } from '../types';
 import { useIntuitionSession } from './use-intuition-session';
 
 /**
@@ -32,6 +32,9 @@ export type SubmissionState =
   | {
       status: 'confirmed';
       tripleId: TripleId;
+      subjectAtomId: AtomId;
+      predicateAtomId: AtomId;
+      objectAtomId: AtomId;
       atomTxHash: Hex | undefined;
       tripleTxHash: Hex;
     }
@@ -119,13 +122,23 @@ export function useSubmitClaim(): UseSubmitClaimReturn {
         setState({
           status: 'confirmed',
           tripleId: result.tripleId,
+          subjectAtomId: result.subjectAtomId,
+          predicateAtomId: result.predicateAtomId,
+          objectAtomId: result.objectAtomId,
           atomTxHash: result.atomTxHash,
           tripleTxHash: result.tripleTxHash,
         });
-        // Refresh every live query (atoms, triples, positions...) so
-        // the graph and tree views pick up the freshly-published claim
-        // without waiting for the default staleTime to expire.
-        void queryClient.invalidateQueries({ queryKey: ['intuition'] });
+        // Refresh every live query so the graph and tree views pick up
+        // the freshly-published claim without waiting for staleTime to
+        // expire. Retry twice with a delay because the indexer lags
+        // the chain by a few seconds — the first refetch typically
+        // misses the new triple.
+        const refresh = (): void => {
+          void queryClient.invalidateQueries({ queryKey: ['intuition'] });
+        };
+        refresh();
+        setTimeout(refresh, 4000);
+        setTimeout(refresh, 12000);
       } catch (error) {
         setState({
           status: 'error',

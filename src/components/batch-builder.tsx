@@ -9,20 +9,40 @@ import { useSubmitBatch, type BatchSubmissionState } from '../intuition/hooks/us
 
 interface BatchBuilderProps {
   searchQuery?: string;
+  /** Forwarded from the page so each per-result 'See on graph' button
+   *  in the post-publish summary can drive the live graph's selection
+   *  to the matching subject atom. */
+  onFocusOnGraph?: (atomId: string) => void;
 }
 
-export function BatchBuilder({ searchQuery }: BatchBuilderProps) {
+export function BatchBuilder({ searchQuery, onFocusOnGraph }: BatchBuilderProps) {
   const { batch, setBatch } = useClaimWorkspace();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedFeedback, setCopiedFeedback] = useState<string | null>(null);
+  // Snapshot the batch entries at submit time so we can render the
+  // post-publish summary with the original labels even if the user
+  // edits the live batch list afterwards.
+  const [submittedSnapshot, setSubmittedSnapshot] = useState<ClaimEntry[]>([]);
+
+  const onchainBatch = useSubmitBatch();
+  const isPublishing =
+    onchainBatch.state.status === 'preparing' ||
+    onchainBatch.state.status === 'creating-atoms' ||
+    onchainBatch.state.status === 'creating-triple';
 
   const handleRemove = useCallback((id: string) => {
     setBatch((prev) => prev.filter((c) => c.id !== id));
   }, [setBatch]);
 
   const handleClear = useCallback(() => {
+    // Wipe the staging batch AND the post-publish confirmation card —
+    // once the user empties the list, the prior confirmation no longer
+    // refers to anything visible and would otherwise display stale
+    // labels next to a fresh batch the user is about to compose.
     setBatch([]);
-  }, [setBatch]);
+    setSubmittedSnapshot([]);
+    onchainBatch.reset();
+  }, [setBatch, onchainBatch]);
 
   const handleDownload = useCallback(() => {
     downloadClaimsAsJson(batch);
@@ -46,14 +66,9 @@ export function BatchBuilder({ searchQuery }: BatchBuilderProps) {
     }
   }, [batch]);
 
-  const onchainBatch = useSubmitBatch();
-  const isPublishing =
-    onchainBatch.state.status === 'preparing' ||
-    onchainBatch.state.status === 'creating-atoms' ||
-    onchainBatch.state.status === 'creating-triple';
-
   const handlePublishBatchOnchain = useCallback(() => {
     if (batch.length === 0) return;
+    setSubmittedSnapshot(batch);
     void onchainBatch.submit(
       batch.map((c) => ({
         subject: c.subject,
@@ -162,7 +177,22 @@ export function BatchBuilder({ searchQuery }: BatchBuilderProps) {
 
           <BatchSubmissionStatus
             state={onchainBatch.state}
-            onReset={onchainBatch.reset}
+            onReset={() => {
+              // Wipe both the submission state machine AND the staging
+              // batch + draft snapshot so a follow-up batch starts from
+              // a clean slate. Without this, the just-published entries
+              // would still sit in the list and the next add-to-batch
+              // would mix them with new drafts. (For the error case the
+              // entries are kept so the user can retry.)
+              const wasConfirmed = onchainBatch.state.status === 'confirmed';
+              onchainBatch.reset();
+              if (wasConfirmed) {
+                setBatch([]);
+                setSubmittedSnapshot([]);
+              }
+            }}
+            submittedDrafts={submittedSnapshot}
+            onFocusOnGraph={onFocusOnGraph}
           />
         </div>
       )}
@@ -187,9 +217,13 @@ const EXPLORER_BY_CHAIN: Record<number, string> = {
 function BatchSubmissionStatus({
   state,
   onReset,
+  submittedDrafts,
+  onFocusOnGraph,
 }: {
   state: BatchSubmissionState;
   onReset: () => void;
+  submittedDrafts: ClaimEntry[];
+  onFocusOnGraph?: (atomId: string) => void;
 }) {
   if (state.status === 'idle') return null;
 
@@ -229,28 +263,73 @@ function BatchSubmissionStatus({
       </div>
 
       {state.status === 'confirmed' && (
-        <div className="mt-1.5 space-y-0.5 font-mono text-[11px]">
-          {state.atomTxHash !== undefined && explorerBase !== undefined && (
-            <a
-              href={`${explorerBase}/tx/${state.atomTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
-            >
-              Atoms tx ↗ {truncateHash(state.atomTxHash)}
-            </a>
+        <>
+          <div className="mt-1.5 space-y-0.5 font-mono text-[11px]">
+            {state.atomTxHash !== undefined && explorerBase !== undefined && (
+              <a
+                href={`${explorerBase}/tx/${state.atomTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
+              >
+                Atoms tx ↗ {truncateHash(state.atomTxHash)}
+              </a>
+            )}
+            {explorerBase !== undefined && (
+              <a
+                href={`${explorerBase}/tx/${state.tripleTxHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
+              >
+                Triples tx ↗ {truncateHash(state.tripleTxHash)} ({state.results.length} claim{state.results.length > 1 ? 's' : ''})
+              </a>
+            )}
+          </div>
+          {state.results.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {state.results.map((result, i) => {
+                const draft = submittedDrafts[i];
+                if (draft === undefined) return null;
+                const subjectColor = getAtomColor(draft.subjectType);
+                const objectColor = getAtomColor(draft.objectType);
+                return (
+                  <li
+                    key={result.tripleId}
+                    className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-[var(--color-surface-hover)]/40 transition-colors"
+                  >
+                    <span className="font-mono text-[10px] text-[var(--color-text-muted)] w-4 shrink-0 text-right">
+                      {i + 1}.
+                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1 font-mono text-[11px]">
+                      <span className="truncate" style={{ color: subjectColor }}>
+                        {draft.subject}
+                      </span>
+                      <span className="text-[var(--color-text-muted)] shrink-0">—</span>
+                      <span className="text-[var(--color-accent)] shrink-0">
+                        {draft.predicateLabel}
+                      </span>
+                      <span className="text-[var(--color-text-muted)] shrink-0">—</span>
+                      <span className="truncate" style={{ color: objectColor }}>
+                        {draft.object}
+                      </span>
+                    </div>
+                    {onFocusOnGraph !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => onFocusOnGraph(result.subjectAtomId)}
+                        className="focus-ring shrink-0 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-400/20 transition-colors"
+                        title={`Focus ${draft.subject} in the live graph`}
+                      >
+                        See on graph ↓
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
-          {explorerBase !== undefined && (
-            <a
-              href={`${explorerBase}/tx/${state.tripleTxHash}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-[var(--color-text-secondary)] hover:text-[var(--color-accent)] transition-colors"
-            >
-              Triples tx ↗ {truncateHash(state.tripleTxHash)} ({state.results.length} claim{state.results.length > 1 ? 's' : ''})
-            </a>
-          )}
-        </div>
+        </>
       )}
 
       {state.status === 'error' && (

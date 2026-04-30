@@ -30,6 +30,8 @@ export { multivaultReadAbi, multivaultWriteAbi, multivaultAbi } from './abi/mult
 
 // Services
 export { getAtoms, getTriples, searchAtoms, getTriplesForAtom } from './services/graphql.service';
+export { pinThing, pinPerson, pinOrganization, pinAtomData, isCaip10Address } from './services/ipfs.service';
+export type { IpfsUri, ThingInput, PersonInput, OrganizationInput, AtomPinRequest } from './services/ipfs.service';
 
 // Hooks
 export { useIntuitionSession } from './hooks/use-intuition-session';

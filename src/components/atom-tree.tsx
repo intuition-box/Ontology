@@ -25,7 +25,7 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
   // can surface a small live-count badge next to its label, making the
   // schema view concretely reflect on-chain activity. Falls back
   // silently to a no-count tree when the indexer is unreachable.
-  const liveAtomsQuery = useLiveAtoms({ limit: 200 });
+  const liveAtomsQuery = useLiveAtoms({ limit: 5000 });
   const liveCountsByType = useMemo(() => {
     const map = new Map<string, number>();
     const atoms = liveAtomsQuery.data;
@@ -35,7 +35,6 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
     }
     return map;
   }, [liveAtomsQuery.data]);
-  const liveAtomsTotal = liveAtomsQuery.data?.length ?? 0;
 
   // Stable callback ref so D3 event handlers don't go stale
   const onSelectTypeRef = useRef(onSelectType);
@@ -217,7 +216,6 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="text-lg font-semibold text-[var(--color-text)]">Entity Hierarchy</h2>
-              <LiveAtomsPill query={liveAtomsQuery} count={liveAtomsTotal} />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {(hasInteracted || selectedTypeId) && (
@@ -258,43 +256,6 @@ export function AtomTree({ selectedTypeId, onSelectType, globalSearchQuery }: At
  * query state at all times so live wiring is visible even when no type
  * happens to have a count yet.
  */
-function LiveAtomsPill({
-  query,
-  count,
-}: {
-  query: ReturnType<typeof useLiveAtoms>;
-  count: number;
-}) {
-  if (query.isLoading) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
-        Loading
-      </span>
-    );
-  }
-  if (query.error !== null && query.error !== undefined) {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
-        title={query.error.message}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
-        Indexer error
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]"
-      title={`${count} atoms indexed onchain`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
-      {count} atoms
-    </span>
-  );
-}
-
 // ─── Icons ──────────────────────────────────────────────────
 
 function FullscreenIcon() {

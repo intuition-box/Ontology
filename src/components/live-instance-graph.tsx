@@ -154,7 +154,7 @@ export function LiveInstanceGraph({
   const onSelectAtomRef = useRef(onSelectAtom);
   onSelectAtomRef.current = onSelectAtom;
 
-  const liveTriplesQuery = useLiveTriples({ limit: 100 });
+  const liveTriplesQuery = useLiveTriples({ limit: 5000 });
   const { nodes, links } = useMemo(() => {
     const triples = liveTriplesQuery.data;
     if (triples === undefined) return { nodes: [], links: [] };
@@ -523,12 +523,6 @@ export function LiveInstanceGraph({
               <h2 className="text-lg font-semibold text-[var(--color-text)]">
                 Live Knowledge Graph
               </h2>
-              <StatusBadge
-                status={status}
-                count={nodes.length}
-                edgeCount={links.length}
-                error={liveTriplesQuery.error}
-              />
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {hasInteracted && (
@@ -578,47 +572,6 @@ export function LiveInstanceGraph({
         style={{ opacity: 0 }}
       />
     </div>
-  );
-}
-
-function StatusBadge({
-  status,
-  count,
-  edgeCount,
-  error,
-}: {
-  status: 'loading' | 'error' | 'empty' | 'ready';
-  count: number;
-  edgeCount: number;
-  error: Error | null;
-}) {
-  if (status === 'loading') {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
-        Loading
-      </span>
-    );
-  }
-  if (status === 'error') {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
-        title={error?.message ?? 'unknown error'}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
-        Indexer error
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]"
-      title={`${count} atoms, ${edgeCount} triples`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
-      {count} atoms · {edgeCount} triples
-    </span>
   );
 }
 

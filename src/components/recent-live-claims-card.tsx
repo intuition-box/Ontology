@@ -28,7 +28,7 @@ export function RecentLiveClaimsCard({
   selectedAtomId = null,
   onSelectAtom,
 }: RecentLiveClaimsCardProps = {}) {
-  const liveTriplesQuery = useLiveTriples({ limit: 50 });
+  const liveTriplesQuery = useLiveTriples({ limit: 5000 });
   const claims = useMemo(() => {
     const triples = liveTriplesQuery.data;
     if (triples === undefined) return [];
@@ -56,7 +56,6 @@ export function RecentLiveClaimsCard({
           <h2 className="text-lg font-semibold text-[var(--color-text)]">
             Recent claims
           </h2>
-          <StatusBadge query={liveTriplesQuery} count={claims.length} />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-4">
@@ -128,36 +127,3 @@ function liveAtomColor(type: string): string {
   return 'var(--color-text-secondary)';
 }
 
-function StatusBadge({
-  query,
-  count,
-}: {
-  query: ReturnType<typeof useLiveTriples>;
-  count: number;
-}) {
-  if (query.isLoading) {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-muted)]">
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-text-muted)] animate-pulse" aria-hidden />
-        Loading
-      </span>
-    );
-  }
-  if (query.error !== null && query.error !== undefined) {
-    return (
-      <span
-        className="inline-flex items-center gap-1.5 rounded-full border border-[var(--destructive)]/30 bg-[var(--destructive)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--destructive)]"
-        title={query.error.message}
-      >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--destructive)]" aria-hidden />
-        Error
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-accent)]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" aria-hidden />
-      {count}
-    </span>
-  );
-}

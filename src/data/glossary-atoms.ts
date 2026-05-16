@@ -485,5 +485,13 @@ export const GLOSSARY_ATOMS: GlossaryAtom[] = [
     conceptGroup: 'report',
     description: 'Indicates that an entity has been flagged for a specific concern. Object atom carries the category (e.g. Scam, Spam, Injection). Consumers should filter by trusted publisher address.',
   },
+  {
+    address: '0xbeebfb7d177cbd96ffc239d2196c72ec346efe81f39dc595773f13d83506f5f0',
+    label: 'same as',
+    kind: 'predicate',
+    form: 'phrase',
+    conceptGroup: 'identity',
+    description: 'Expresses that subject and object are different identifiers for the same underlying entity. Classic schema.org sameAs pattern. Use when one identifier may be mutable and another is immutable. The triple survives changes to the mutable side.',
+  },
 ];
 /* eslint-enable @stylistic/max-len */

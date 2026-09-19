@@ -63,7 +63,10 @@ export const ATOM_CATEGORIES: Record<AtomCategory, { label: string; color: strin
  * Fields match the canonical classification schemas exactly.
  * @see https://github.com/0xIntuition/intuition-data-structures/tree/main/classifications
  */
+import { ECOSYSTEM_ATOM_TYPES } from './ecosystem-ontologies';
+
 export const ATOM_TYPES: AtomType[] = [
+  ...ECOSYSTEM_ATOM_TYPES,
   // ─── Self ──────────────────────────────────────────────────
   {
     id: 'Self',

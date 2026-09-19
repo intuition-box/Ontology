@@ -297,7 +297,11 @@ const DEFAULT_SEMANTICS = { group: PREDICATE_GROUPS[0], priority: 999 } as const
  *      so any new Person-compatible predicate added later automatically
  *      works with `I`.
  */
-export const PREDICATES: PredicateRule[] = PREDICATE_DEFINITIONS.map((def) => {
+import { ECOSYSTEM_PREDICATES } from './ecosystem-ontologies';
+
+export const PREDICATES: PredicateRule[] = [
+  ...ECOSYSTEM_PREDICATES,
+  ...PREDICATE_DEFINITIONS.map((def) => {
   const semantics = PREDICATE_SEMANTICS[def.id] ?? DEFAULT_SEMANTICS;
   const form = PREDICATE_FORMS[def.id] ?? 'third-person-singular';
   const subjectTypes =
@@ -311,7 +315,7 @@ export const PREDICATES: PredicateRule[] = PREDICATE_DEFINITIONS.map((def) => {
     priority: semantics.priority,
     form,
   };
-});
+})];
 
 /**
  * Returns predicates compatible with the given subject type.
